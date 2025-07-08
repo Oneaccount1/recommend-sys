@@ -1,7 +1,6 @@
 package cv
 
 import (
-	"fmt"
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/stat"
 	"recommend-sys/algo"
@@ -42,7 +41,11 @@ func MeanAbsoluteError(predictions, truth []float64) float64 {
 }
 
 // CrossValidate 验证推荐算法性能
-func CrossValidate(recommender algo.Algorithm, dataSet data.Set, cv int) {
+func CrossValidate(recommender algo.Algorithm, dataSet data.Set, measure []string, cv int) [][]float64 {
+
+	a := make([][]float64, cv)
+
+	// 分割数据集
 	trainSet, testSet := dataSet.KFold(cv)
 
 	for i := 0; i < cv; i++ {
@@ -50,7 +53,7 @@ func CrossValidate(recommender algo.Algorithm, dataSet data.Set, cv int) {
 		testFold := testSet[i]
 
 		// fit
-		recommender.Fit(data.Set{trainFold, trainFold.Nrow()})
+		recommender.Fit(data.NewDataSet(trainFold))
 
 		result := make([]float64, testFold.Nrow())
 		// predict
@@ -62,8 +65,7 @@ func CrossValidate(recommender algo.Algorithm, dataSet data.Set, cv int) {
 			result[j] = predict
 		}
 		tr := testFold.Col("X2").Float()
-
-		fmt.Println(RootMeanSquareError(result, tr))
-		fmt.Println(MeanAbsoluteError(result, tr))
+		a[i] = []float64{RootMeanSquareError(result, tr), MeanAbsoluteError(result, tr)}
 	}
+	return a
 }

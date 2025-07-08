@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"math/rand"
 	"recommend-sys/algo"
 	"recommend-sys/cv"
@@ -12,9 +13,12 @@ func main() {
 	rand.New(rand.NewSource(100))
 
 	// 创建算法实例
-	random := &algo.Random{}
+	random := algo.NewRandomRecommend()
+	baseline := algo.NewBaseLineRecommender()
 
 	set := data.LoadDataSet()
-	cv.CrossValidate(random, set, 5)
+
+	fmt.Println(cv.CrossValidate(random, set, []string{"RMSE"}, 5))
+	fmt.Println(cv.CrossValidate(baseline, set, []string{"RMSE"}, 5))
 
 }
