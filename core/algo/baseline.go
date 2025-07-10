@@ -33,9 +33,9 @@ func (b *Baseline) Fit(trainSet data.Set, options ...OptionsEditor) {
 
 	// 设置选项
 	option := Option{
-		regularization: 0.02,
-		learningRate:   0.005,
-		nEpoch:         20,
+		reg:    0.02,
+		lr:     0.005,
+		nEpoch: 20,
 	}
 
 	for _, editor := range options {
@@ -55,13 +55,13 @@ func (b *Baseline) Fit(trainSet data.Set, options ...OptionsEditor) {
 			diff := rating - b.globalBias - userBias - itemBias
 
 			gradGlobalBias := -2 * diff
-			gradUserBias := -2*diff + 2*option.regularization*userBias
-			gradItemBias := -2*diff + 2*option.regularization*itemBias
+			gradUserBias := -2*diff + 2*option.reg*userBias
+			gradItemBias := -2*diff + 2*option.reg*itemBias
 
 			// 更新梯度
-			b.globalBias -= option.learningRate * gradGlobalBias
-			b.userBias[userID] -= option.learningRate * gradUserBias
-			b.itemBias[itemID] -= option.learningRate * gradItemBias
+			b.globalBias -= option.lr * gradGlobalBias
+			b.userBias[userID] -= option.lr * gradUserBias
+			b.itemBias[itemID] -= option.lr * gradItemBias
 		}
 	}
 }

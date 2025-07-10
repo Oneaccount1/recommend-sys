@@ -3,7 +3,7 @@ package cv
 import (
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/stat"
-	"recommend-sys/algo"
+	"recommend-sys/core/algo"
 	"recommend-sys/data"
 
 	"math"
