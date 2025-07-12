@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-const EPSILON = 0.05
+const EPSILON float64 = 0.05
 
 func Evaluate(t *testing.T, algo Algorithm, dataSet TrainSet,
 	expectRMSE float64, expectMAE float64) {
@@ -37,9 +37,9 @@ func TestSVD(t *testing.T) {
 }
 
 // Comment out SVD++ test to avoid time out
-//func TestSVDPP(t *testing.T) {
-//	Evaluate(t, NewSVDPP(), LoadDataFromBuiltIn(), 0.92, 0.722)
-//}
+func TestSVDPP(t *testing.T) {
+	Evaluate(t, NewSVDPP(), LoadDataFromBuiltIn("ml-100k"), 0.92, 0.722)
+}
 
 func TestKNN(t *testing.T) {
 	Evaluate(t, NewKNN(), LoadDataFromBuiltIn("ml-100k"), 0.98, 0.774)

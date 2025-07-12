@@ -7,29 +7,6 @@ import (
 	"math/rand/v2"
 )
 
-func abs(dst []float64) {
-	for i := 0; i < len(dst); i++ {
-		dst[i] = math.Abs(dst[i])
-	}
-}
-func Copy(dst, src []float64) []float64 {
-	copy(dst, src)
-	return dst
-}
-func MulConst(c float64, dst []float64) []float64 {
-	for i := 0; i < len(dst); i++ {
-		dst[i] *= c
-	}
-	return dst
-}
-
-func DivConst(c float64, dst []float64) []float64 {
-	for i := 0; i < len(dst); i++ {
-		dst[i] /= c
-	}
-	return dst
-}
-
 func concatenate(arrs ...[]int) []int {
 	// Sum lengths
 	total := 0
@@ -48,6 +25,49 @@ func concatenate(arrs ...[]int) []int {
 	return ret
 }
 
+func selectFloat(a []float64, indices []int) []float64 {
+	ret := make([]float64, len(indices))
+	for i, index := range indices {
+		ret[i] = a[index]
+	}
+	return ret
+}
+
+// Fix bug
+func selectInt(a []int, indices []int) []int {
+	ret := make([]int, len(indices))
+	for i, index := range indices {
+		ret[i] = a[index]
+	}
+	return ret
+}
+func unique(a []int) Set {
+	set := make(map[int]interface{})
+	for _, val := range a {
+		set[val] = nil
+	}
+	return set
+}
+
+func abs(dst []float64) {
+	for i := 0; i < len(dst); i++ {
+		dst[i] = math.Abs(dst[i])
+	}
+}
+func mulConst(c float64, dst []float64) {
+	for i := 0; i < len(dst); i++ {
+		dst[i] *= c
+	}
+}
+
+func divConst(c float64, dst []float64) {
+	for i := 0; i < len(dst); i++ {
+		dst[i] /= c
+	}
+}
+
+// 生成测试数据
+
 func NewNormalVector(size int, mean float64, stdDev float64) []float64 {
 	ret := make([]float64, size)
 	for i := 0; i < len(ret); i++ {
@@ -61,29 +81,6 @@ func NewUniformVector(size int, low float64, high float64) []float64 {
 	scale := high - low
 	for i := 0; i < len(ret); i++ {
 		ret[i] = rand.Float64()*scale + low
-	}
-	return ret
-}
-func unique(a []int) Set {
-	set := make(map[int]interface{})
-	for _, val := range a {
-		set[val] = nil
-	}
-	return set
-}
-
-func selectFloat(a []float64, indices []int) []float64 {
-	ret := make([]float64, len(indices))
-	for id, index := range indices {
-		ret[id] = a[index]
-	}
-	return ret
-}
-
-func selectInt(a []int, indices []int) []int {
-	ret := make([]int, len(indices))
-	for id, index := range ret {
-		ret[id] = a[index]
 	}
 	return ret
 }

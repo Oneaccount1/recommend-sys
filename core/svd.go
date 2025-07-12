@@ -27,10 +27,13 @@ func (s *SVD) Predict(userID, itemID int) float64 {
 
 func (s *SVD) Fit(trainData TrainSet, options ...OptionSetter) {
 	option := Option{
-		nFactors: 100,
-		nEpochs:  20,
-		lr:       0.005,
-		reg:      0.02,
+		nFactors:   100,
+		nEpochs:    20,
+		lr:         0.005,
+		reg:        0.02,
+		biased:     true,
+		initMean:   0,
+		initStdDev: 0.1,
 	}
 
 	for _, editor := range options {
@@ -46,18 +49,20 @@ func (s *SVD) Fit(trainData TrainSet, options ...OptionSetter) {
 
 	for userID := range trainData.Users() {
 		s.userBias[userID] = 0
-		s.userFactor[userID] = make([]float64, option.nFactors)
+		s.userFactor[userID] = NewNormalVector(option.nFactors, option.initMean, option.initStdDev)
 	}
 
 	for itemID := range trainData.Items() {
 		s.itemBias[itemID] = 0
-		s.itemFactor[itemID] = make([]float64, option.nFactors)
+		s.itemFactor[itemID] = NewNormalVector(option.nFactors, option.initMean, option.initStdDev)
 	}
 
 	users, items, ratings := trainData.Interactions()
+	// 创建缓存
+	a := make([]float64, option.nFactors)
+	b := make([]float64, option.nFactors)
 
 	// 随机梯度下降
-
 	for epoch := 0; epoch < option.nEpochs; epoch++ {
 		for i := 0; i < trainData.Length(); i++ {
 			userID := users[i]
@@ -68,30 +73,33 @@ func (s *SVD) Fit(trainData TrainSet, options ...OptionSetter) {
 			userFactor := s.userFactor[userID]
 			itemFactor := s.itemFactor[itemID]
 			// 计算差值
-			diff := rating - s.globalBias - userBias - itemBias - floats.Dot(userFactor, itemFactor)
+			diff := s.Predict(userID, itemID) - rating
 
 			// 计算各个参数的梯度
-			gradGlobalBias := -2 * diff
+			gradGlobalBias := diff
 			s.globalBias -= option.lr * gradGlobalBias
 
-			gradUserBias := -2*diff + 2*option.reg*userBias
+			gradUserBias := diff + option.reg*userBias
 			s.userBias[userID] -= option.lr * gradUserBias
 
-			gradItemBias := -2*diff + 2*option.reg*itemBias
+			gradItemBias := diff + option.reg*itemBias
 			s.itemBias[itemID] -= option.lr * gradItemBias
+			// update user latent factor
+			copy(a, itemFactor)
+			mulConst(diff, a)
+			copy(b, userFactor)
+			mulConst(option.reg, b)
+			floats.Add(a, b)
+			mulConst(option.lr, a)
+			floats.Sub(s.userFactor[userID], a)
 
-			//gradUserFactor := Copy(buffer, userFactor)
-			gradUserFactor := MulConst(-2*diff, itemFactor)
-			floats.Add(gradUserFactor, MulConst(2*option.reg, userFactor))
-
-			//floats.Sub(MulConst(-2*diff, itemFactor), MulConst(2*option.regularization, userFactor))
-			floats.Sub(s.userFactor[userID], MulConst(option.lr, gradUserFactor))
-
-			gradItemFactor := MulConst(-2*diff, userFactor)
-			floats.Add(gradItemFactor, MulConst(2*option.reg, itemFactor))
-			//gradItemFactor := Copy(buffer, itemFactor)
-			//floats.Sub(MulConst(-2*diff, userFactor), MulConst(2*option.regularization, itemFactor))
-			floats.Sub(s.itemFactor[itemID], MulConst(option.lr, gradItemFactor))
+			copy(a, userFactor)
+			mulConst(diff, a)
+			copy(b, itemFactor)
+			mulConst(option.reg, b)
+			floats.Add(a, b)
+			mulConst(option.lr, a)
+			floats.Sub(s.itemFactor[itemID], a)
 		}
 	}
 

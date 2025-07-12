@@ -12,15 +12,13 @@ type KNN struct {
 	ratings map[int]map[int]float64
 }
 
-func (K *KNN) Predict(userId int, itemId int) float64 {
+func (K *KNN) Predict(userID int, itemID int) float64 {
 	// 设置基于用户或者基于物品的预测
 	var leftID, rightID int
 	if K.option.userBased {
-		leftID = userId
-		rightID = itemId
+		leftID, rightID = userID, itemID
 	} else {
-		leftID = itemId
-		rightID = userId
+		leftID, rightID = itemID, userID
 	}
 	// 获取用户（物品）有交互的 物品（用户）
 	candidates := make([]int, 0)
@@ -51,7 +49,7 @@ func (K *KNN) Predict(userId int, itemId int) float64 {
 	for _, otherID := range candidateSet.candidate[0:numNeighbors] {
 		weightSum += K.sims[leftID][otherID]
 		// （以基于用户的角度）用户与候选人相似度 * 候选人对该物品的评分
-		weightRating += K.sims[leftID][otherID] * K.ratings[otherID][itemId]
+		weightRating += K.sims[leftID][otherID] * K.ratings[otherID][itemID]
 	}
 	return weightRating / weightSum
 
@@ -74,9 +72,9 @@ func (K *KNN) Fit(trainSet TrainSet, options ...OptionSetter) {
 	K.mean = trainSet.GlobalMean()
 	// 获取用户（物品） 评分
 	if K.option.userBased {
-		K.ratings = trainSet.userRatings
+		K.ratings = trainSet.UserRatings()
 	} else {
-		K.ratings = trainSet.itemRatings
+		K.ratings = trainSet.ItemRatings()
 	}
 	// 两两相似度
 	K.sims = make(map[int]map[int]float64)
