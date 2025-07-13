@@ -1,27 +1,29 @@
 package core
 
-type Baseline struct {
-	userBias   map[int]float64
-	itemBias   map[int]float64
+type BaseLine struct {
+	userBias   []float64 //b_u
+	itemBias   []float64 // b_i
 	globalBias float64
+	trainSet   TrainSet
 }
 
-type stu struct {
-	Name string
+func NewBaseLine() *BaseLine {
+	return new(BaseLine)
 }
 
-func NewBaseLine() *Baseline {
-
-	return new(Baseline)
-
+func (b *BaseLine) Predict(userID, itemID int) float64 {
+	innerUserID := b.trainSet.ConvertUserID(userID)
+	innerItemID := b.trainSet.ConvertItemID(itemID)
+	ret := b.globalBias
+	if innerUserID != noBody {
+		ret += b.userBias[innerUserID]
+	}
+	if innerItemID != noBody {
+		ret += b.itemBias[innerItemID]
+	}
+	return ret
 }
-
-func (b *Baseline) Predict(userID, itemID int) float64 {
-	userBias, _ := b.userBias[userID]
-	itemBias, _ := b.itemBias[itemID]
-	return userBias + itemBias + b.globalBias
-}
-func (b *Baseline) Fit(trainSet TrainSet, options ...OptionSetter) {
+func (b *BaseLine) Fit(trainSet TrainSet, options ...OptionSetter) {
 
 	// 设置选项
 	option := Option{
@@ -29,41 +31,34 @@ func (b *Baseline) Fit(trainSet TrainSet, options ...OptionSetter) {
 		lr:      0.005,
 		nEpochs: 20,
 	}
-
-	b.userBias = make(map[int]float64)
-	b.itemBias = make(map[int]float64)
-
-	for userID := range trainSet.Users() {
-		b.userBias[userID] = 0
-	}
-
-	for itemID := range trainSet.Items() {
-		b.itemBias[itemID] = 0
-	}
 	for _, editor := range options {
 		editor(&option)
 	}
+	b.trainSet = trainSet
+	b.userBias = make([]float64, b.trainSet.userCount)
+	b.itemBias = make([]float64, b.trainSet.itemCount)
 
 	users, items, ratings := trainSet.Interactions()
 	// baseline算法有两个参数需要训练得到, 使用随机梯度下降算法
 	for epoch := 0; epoch < option.nEpochs; epoch++ {
 		for i := 0; i < trainSet.Length(); i++ {
-			userID := users[i]
-			itemID := items[i]
-			rating := ratings[i]
-			userBias := b.userBias[userID]
-			itemBias := b.itemBias[itemID]
-			// 计算梯度
-			diff := rating - b.globalBias - userBias - itemBias
+			userID, itemID, rating := users[i], items[i], ratings[i]
 
-			gradGlobalBias := -2 * diff
-			gradUserBias := -2*diff + 2*option.reg*userBias
-			gradItemBias := -2*diff + 2*option.reg*itemBias
+			innerUserID := trainSet.ConvertUserID(userID)
+			innerItemID := trainSet.ConvertItemID(itemID)
+			userBias := b.userBias[innerUserID]
+			itemBias := b.itemBias[innerItemID]
+			// 计算梯度
+			diff := b.Predict(userID, itemID) - rating
+
+			gradGlobalBias := diff
+			gradUserBias := diff + option.reg*userBias
+			gradItemBias := diff + option.reg*itemBias
 
 			// 更新梯度
 			b.globalBias -= option.lr * gradGlobalBias
-			b.userBias[userID] -= option.lr * gradUserBias
-			b.itemBias[itemID] -= option.lr * gradItemBias
+			b.userBias[innerUserID] -= option.lr * gradUserBias
+			b.itemBias[innerItemID] -= option.lr * gradItemBias
 		}
 	}
 }

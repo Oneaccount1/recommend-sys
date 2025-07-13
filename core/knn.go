@@ -6,25 +6,32 @@ import (
 )
 
 type KNN struct {
-	option  Option
-	mean    float64
-	sims    map[int]map[int]float64
-	ratings map[int]map[int]float64
+	option   Option
+	mean     float64
+	sims     [][]float64
+	ratings  [][]float64
+	trainSet TrainSet
 }
 
 func (K *KNN) Predict(userID int, itemID int) float64 {
+	innerUserID := K.trainSet.ConvertUserID(userID)
+	innerItemID := K.trainSet.ConvertItemID(itemID)
+
 	// 设置基于用户或者基于物品的预测
 	var leftID, rightID int
 	if K.option.userBased {
-		leftID, rightID = userID, itemID
+		leftID, rightID = innerUserID, innerItemID
 	} else {
-		leftID, rightID = itemID, userID
+		leftID, rightID = innerItemID, innerUserID
+	}
+	if leftID == noBody || rightID == noBody {
+		return K.mean
 	}
 	// 获取用户（物品）有交互的 物品（用户）
 	candidates := make([]int, 0)
 
 	for otherID := range K.ratings {
-		if _, exist := K.ratings[otherID][rightID]; exist && !math.IsNaN(K.sims[leftID][otherID]) {
+		if !math.IsNaN(K.ratings[otherID][rightID]) && !math.IsNaN(K.sims[leftID][otherID]) {
 			candidates = append(candidates, otherID)
 		}
 	}
@@ -38,7 +45,7 @@ func (K *KNN) Predict(userID int, itemID int) float64 {
 	candidateSet := NewCandidateSet(K.sims[leftID], candidates)
 	sort.Sort(candidateSet)
 
-	// 获取邻居数量
+	// 控制User邻居数量
 	numNeighbors := K.option.k
 	if numNeighbors > candidateSet.Len() {
 		numNeighbors = candidateSet.Len()
@@ -49,7 +56,7 @@ func (K *KNN) Predict(userID int, itemID int) float64 {
 	for _, otherID := range candidateSet.candidate[0:numNeighbors] {
 		weightSum += K.sims[leftID][otherID]
 		// （以基于用户的角度）用户与候选人相似度 * 候选人对该物品的评分
-		weightRating += K.sims[leftID][otherID] * K.ratings[otherID][itemID]
+		weightRating += K.sims[leftID][otherID] * K.ratings[otherID][rightID]
 	}
 	return weightRating / weightSum
 
@@ -62,35 +69,27 @@ func (K *KNN) Fit(trainSet TrainSet, options ...OptionSetter) {
 		userBased: true,
 		k:         40, // the (max) number of neighbors to take into account for aggregation
 		minK:      1,  // The minimum number of neighbors to take into account for aggregation.
-		// If there are not enough neighbors, the prediction is set the global
-		// mean of all interactionRatings
+		// If there are not enough neighbors, the prediction is set the global mean of all interactionRatings
 	}
 	for _, setter := range options {
 		setter(&K.option)
 	}
+	K.trainSet = trainSet
 	// 设置全局平均值为新的用户（物品）
 	K.mean = trainSet.GlobalMean()
 	// 获取用户（物品） 评分
 	if K.option.userBased {
 		K.ratings = trainSet.UserRatings()
+		K.sims = newNanMatrix(K.trainSet.userCount, K.trainSet.userCount)
 	} else {
 		K.ratings = trainSet.ItemRatings()
+		K.sims = newNanMatrix(K.trainSet.itemCount, K.trainSet.itemCount)
 	}
-	// 两两相似度
-	K.sims = make(map[int]map[int]float64)
-
+	// 两两相似度矩阵
 	for leftID, leftRatings := range K.ratings {
 		for rightID, rightRatings := range K.ratings {
 			if leftID != rightID {
-
-				if _, exist := K.sims[leftID]; !exist {
-					K.sims[leftID] = make(map[int]float64)
-				}
-				if _, exist := K.sims[rightID]; !exist {
-					K.sims[rightID] = make(map[int]float64)
-				}
-				// 设置相似度值
-				if _, exist := K.sims[leftID][rightID]; !exist {
+				if math.IsNaN(K.sims[leftID][rightID]) {
 					ret := K.option.sim(leftRatings, rightRatings)
 					if !math.IsNaN(ret) {
 						K.sims[leftID][rightID] = ret
@@ -104,11 +103,11 @@ func (K *KNN) Fit(trainSet TrainSet, options ...OptionSetter) {
 }
 
 type CandidateSet struct {
-	similarities map[int]float64
+	similarities []float64
 	candidate    []int
 }
 
-func NewCandidateSet(sim map[int]float64, candidates []int) *CandidateSet {
+func NewCandidateSet(sim []float64, candidates []int) *CandidateSet {
 	neighbors := &CandidateSet{}
 	neighbors.similarities = sim
 	neighbors.candidate = candidates

@@ -5,24 +5,33 @@ import (
 )
 
 type SVD struct {
-	userFactor map[int][]float64
-	itemFactor map[int][]float64
-	userBias   map[int]float64
-	itemBias   map[int]float64
+	userFactor [][]float64
+	itemFactor [][]float64
+	userBias   []float64
+	itemBias   []float64
 	globalBias float64
+	trainSet   TrainSet
 }
 
 func (s *SVD) Predict(userID, itemID int) float64 {
-	userFactor, _ := s.userFactor[userID]
-	itemFactor, _ := s.itemFactor[itemID]
-	dot := .0
-	if len(userFactor) == len(itemFactor) {
-		dot = floats.Dot(userFactor, itemFactor)
+	innerUserID := s.trainSet.ConvertUserID(userID)
+	innerItemID := s.trainSet.ConvertItemID(itemID)
+	ret := s.globalBias
+	// +b_u
+	if innerUserID != noBody {
+		ret += s.userBias[innerUserID]
 	}
-
-	userBias, _ := s.userBias[userID]
-	itemBias, _ := s.itemBias[itemID]
-	return s.globalBias + userBias + itemBias + dot
+	// +b_i
+	if innerItemID != noBody {
+		ret += s.itemBias[innerItemID]
+	}
+	// +q_i^Tp_u
+	if !(innerItemID == noBody || innerUserID == noBody) {
+		userFactor := s.userFactor[innerUserID]
+		itemFactor := s.itemFactor[innerItemID]
+		ret += floats.Dot(userFactor, itemFactor)
+	}
+	return ret
 }
 
 func (s *SVD) Fit(trainData TrainSet, options ...OptionSetter) {
@@ -41,20 +50,18 @@ func (s *SVD) Fit(trainData TrainSet, options ...OptionSetter) {
 	}
 
 	// 初始化参数
-	s.userFactor = make(map[int][]float64)
-	s.itemFactor = make(map[int][]float64)
+	s.trainSet = trainData
+	s.userFactor = make([][]float64, s.trainSet.userCount)
+	s.itemFactor = make([][]float64, s.trainSet.itemCount)
 
-	s.itemBias = make(map[int]float64)
-	s.userBias = make(map[int]float64)
+	s.itemBias = make([]float64, s.trainSet.itemCount)
+	s.userBias = make([]float64, s.trainSet.userCount)
 
-	for userID := range trainData.Users() {
-		s.userBias[userID] = 0
-		s.userFactor[userID] = NewNormalVector(option.nFactors, option.initMean, option.initStdDev)
+	for i := range s.userFactor {
+		s.userFactor[i] = NewNormalVector(option.nFactors, option.initMean, option.initStdDev)
 	}
-
-	for itemID := range trainData.Items() {
-		s.itemBias[itemID] = 0
-		s.itemFactor[itemID] = NewNormalVector(option.nFactors, option.initMean, option.initStdDev)
+	for i := range s.itemFactor {
+		s.itemFactor[i] = NewNormalVector(option.nFactors, option.initMean, option.initStdDev)
 	}
 
 	users, items, ratings := trainData.Interactions()
@@ -65,13 +72,13 @@ func (s *SVD) Fit(trainData TrainSet, options ...OptionSetter) {
 	// 随机梯度下降
 	for epoch := 0; epoch < option.nEpochs; epoch++ {
 		for i := 0; i < trainData.Length(); i++ {
-			userID := users[i]
-			itemID := items[i]
-			rating := ratings[i]
-			userBias := s.userBias[userID]
-			itemBias := s.itemBias[itemID]
-			userFactor := s.userFactor[userID]
-			itemFactor := s.itemFactor[itemID]
+			userID, itemID, rating := users[i], items[i], ratings[i]
+			innerUserID := trainData.ConvertUserID(userID)
+			innerItemID := trainData.ConvertItemID(itemID)
+			userBias := s.userBias[innerUserID]
+			itemBias := s.itemBias[innerItemID]
+			userFactor := s.userFactor[innerUserID]
+			itemFactor := s.itemFactor[innerItemID]
 			// 计算差值
 			diff := s.Predict(userID, itemID) - rating
 
@@ -80,10 +87,10 @@ func (s *SVD) Fit(trainData TrainSet, options ...OptionSetter) {
 			s.globalBias -= option.lr * gradGlobalBias
 
 			gradUserBias := diff + option.reg*userBias
-			s.userBias[userID] -= option.lr * gradUserBias
+			s.userBias[innerUserID] -= option.lr * gradUserBias
 
 			gradItemBias := diff + option.reg*itemBias
-			s.itemBias[itemID] -= option.lr * gradItemBias
+			s.itemBias[innerItemID] -= option.lr * gradItemBias
 			// update user latent factor
 			copy(a, itemFactor)
 			mulConst(diff, a)
@@ -91,7 +98,7 @@ func (s *SVD) Fit(trainData TrainSet, options ...OptionSetter) {
 			mulConst(option.reg, b)
 			floats.Add(a, b)
 			mulConst(option.lr, a)
-			floats.Sub(s.userFactor[userID], a)
+			floats.Sub(s.userFactor[innerUserID], a)
 
 			copy(a, userFactor)
 			mulConst(diff, a)
@@ -99,7 +106,7 @@ func (s *SVD) Fit(trainData TrainSet, options ...OptionSetter) {
 			mulConst(option.reg, b)
 			floats.Add(a, b)
 			mulConst(option.lr, a)
-			floats.Sub(s.itemFactor[itemID], a)
+			floats.Sub(s.itemFactor[innerItemID], a)
 		}
 	}
 
