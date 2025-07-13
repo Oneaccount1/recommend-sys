@@ -44,3 +44,9 @@ func TestSVDPP(t *testing.T) {
 func TestKNN(t *testing.T) {
 	Evaluate(t, NewKNN(), LoadDataFromBuiltIn("ml-100k"), 0.98, 0.774)
 }
+func TestKNNWithMean(t *testing.T) {
+	Evaluate(t, NewKNNWithMean(), LoadDataFromBuiltIn("ml-100k"), 0.951, 0.749)
+}
+func TestKNNBaseLine(t *testing.T) {
+	Evaluate(t, NewKNNBaseLine(), LoadDataFromBuiltIn("ml-100k"), 0.931, 0.733)
+}
