@@ -8,11 +8,12 @@ import (
 const (
 	basic    = 0
 	centered = 1
-	baseline = 2
+	zscore   = 2
+	baseline = 3
 )
 
 type KNN struct {
-	option     Option
+	option     Options
 	tpe        int
 	globalMean float64
 	sims       [][]float64
@@ -20,6 +21,11 @@ type KNN struct {
 	means      []float64 // Centered KNN :user(item) mean
 	bias       []float64 // KNN BaseLine :bias
 	trainSet   TrainSet
+
+	// 参数
+	userBased bool
+	k         int
+	minK      int
 }
 type CandidateSet struct {
 	similarities []float64
@@ -64,12 +70,12 @@ func (K *KNN) Predict(userID int, itemID int) float64 {
 	innerItemID := K.trainSet.ConvertItemID(itemID)
 	// 设置基于用户或者基于物品
 	var leftID, rightID int
-	if K.option.userBased {
+	if K.userBased {
 		leftID, rightID = innerUserID, innerItemID
 	} else {
 		leftID, rightID = innerItemID, innerUserID
 	}
-	if leftID == noBody || rightID == noBody {
+	if leftID == newID || rightID == newID {
 		return K.globalMean
 	}
 	// 获取用户（物品）有交互的 物品（用户）
@@ -82,7 +88,7 @@ func (K *KNN) Predict(userID int, itemID int) float64 {
 	}
 
 	// 如果用户（物品） 的数量小于最小值 k。 则使用全局平均直作为预测结果
-	if len(candidates) <= K.option.minK {
+	if len(candidates) <= K.minK {
 		return K.globalMean
 	}
 
@@ -91,7 +97,7 @@ func (K *KNN) Predict(userID int, itemID int) float64 {
 	sort.Sort(candidateSet)
 
 	// 控制User邻居数量
-	numNeighbors := K.option.k
+	numNeighbors := K.k
 	if numNeighbors > candidateSet.Len() {
 		numNeighbors = candidateSet.Len()
 	}
@@ -119,28 +125,23 @@ func (K *KNN) Predict(userID int, itemID int) float64 {
 
 }
 
-func (K *KNN) Fit(trainSet TrainSet, options ...OptionSetter) {
-	// 设置选项
-	K.option = Option{
-		sim:       MSD,
-		userBased: true,
-		k:         40, // the (max) number of neighbors to take into account for aggregation
-		minK:      1,  // The minimum number of neighbors to take into account for aggregation.
-		// If there are not enough neighbors, the prediction is set the global mean of all interactionRatings
-	}
-	for _, setter := range options {
-		setter(&K.option)
-	}
+func (K *KNN) Fit(trainSet TrainSet, options Options) {
+	// Setup options
+	sim := options.GetSim("sim", MSD)
+	K.userBased = options.GetBool("userBased", true)
+	K.k = options.GetInt("k", 40)
+	K.minK = options.GetInt("minK", 1)
+
 	K.trainSet = trainSet
 	// 设置全局平均值为新的用户（物品）
 	K.globalMean = trainSet.GlobalMean()
 	// 获取用户（物品） 评分
-	if K.option.userBased {
+	if K.userBased {
 		K.ratings = trainSet.UserRatings()
-		K.sims = newNanMatrix(K.trainSet.userCount, K.trainSet.userCount)
+		K.sims = newNanMatrix(trainSet.userCount, trainSet.userCount)
 	} else {
 		K.ratings = trainSet.ItemRatings()
-		K.sims = newNanMatrix(K.trainSet.itemCount, K.trainSet.itemCount)
+		K.sims = newNanMatrix(K.trainSet.itemCount, trainSet.itemCount)
 	}
 	// 获取 user（item）的平均值
 	if K.tpe == centered {
@@ -157,8 +158,8 @@ func (K *KNN) Fit(trainSet TrainSet, options ...OptionSetter) {
 		}
 	} else if K.tpe == baseline {
 		baseLine := NewBaseLine()
-		baseLine.Fit(trainSet, options...)
-		if K.option.userBased {
+		baseLine.Fit(trainSet, options)
+		if K.userBased {
 			K.bias = baseLine.userBias
 		} else {
 			K.bias = baseLine.itemBias
@@ -169,7 +170,7 @@ func (K *KNN) Fit(trainSet TrainSet, options ...OptionSetter) {
 		for rightID, rightRatings := range K.ratings {
 			if leftID != rightID {
 				if math.IsNaN(K.sims[leftID][rightID]) {
-					ret := K.option.sim(leftRatings, rightRatings)
+					ret := sim(leftRatings, rightRatings)
 					if !math.IsNaN(ret) {
 						K.sims[leftID][rightID] = ret
 						K.sims[rightID][leftID] = ret

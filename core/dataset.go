@@ -32,7 +32,7 @@ type TrainSet struct {
 	itemRatings [][]float64
 }
 
-const noBody int = -1
+const newID = -1
 
 // Length 获取数据集的大小、长度
 func (set *TrainSet) Length() int {
@@ -74,13 +74,13 @@ func (set *TrainSet) ConvertUserID(userID int) int {
 	if innerUserID, exist := set.innerUserIDs[userID]; exist {
 		return innerUserID
 	}
-	return noBody
+	return newID
 }
 func (set *TrainSet) ConvertItemID(itemID int) int {
 	if innerItemID, exist := set.innerItemIDs[itemID]; exist {
 		return innerItemID
 	}
-	return noBody
+	return newID
 }
 func (set *TrainSet) UserRatings() [][]float64 {
 	if set.userRatings == nil {

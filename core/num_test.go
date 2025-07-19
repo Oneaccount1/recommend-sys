@@ -16,7 +16,7 @@ func Test_unique(t *testing.T) {
 }
 
 func TestNewNormalVector(t *testing.T) {
-	a := NewNormalVector(1000, 1, 2)
+	a := newNormalVector(1000, 1, 2)
 	mean := stat.Mean(a, nil)
 	stdDev := stat.StdDev(a, nil)
 	if math.Abs(mean-1) > 0.2 {

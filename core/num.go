@@ -68,7 +68,7 @@ func divConst(c float64, dst []float64) {
 
 // 生成测试数据
 
-func NewNormalVector(size int, mean float64, stdDev float64) []float64 {
+func newNormalVector(size int, mean float64, stdDev float64) []float64 {
 	ret := make([]float64, size)
 	for i := 0; i < len(ret); i++ {
 		ret[i] = rand.NormFloat64()*stdDev + mean
@@ -76,7 +76,7 @@ func NewNormalVector(size int, mean float64, stdDev float64) []float64 {
 	return ret
 }
 
-func NewUniformVector(size int, low float64, high float64) []float64 {
+func newUniformVector(size int, low float64, high float64) []float64 {
 	ret := make([]float64, size)
 	scale := high - low
 	for i := 0; i < len(ret); i++ {
@@ -85,12 +85,38 @@ func NewUniformVector(size int, low float64, high float64) []float64 {
 	return ret
 }
 
+func newUniformMatrix(row, col int, low, high float64) [][]float64 {
+	ret := make([][]float64, row)
+	for i := range ret {
+		ret[i] = newUniformVector(col, low, high)
+	}
+	return ret
+}
 func newNanMatrix(row, col int) [][]float64 {
+	ret := make([][]float64, row)
+	for i := range ret {
+		ret[i] = make([]float64, col)
+		for j := range ret[i] {
+			ret[i][j] = math.NaN()
+		}
+
+	}
+	return ret
+}
+func newZeroMatrix(row, col int) [][]float64 {
 	ret := make([][]float64, row)
 	for i := range ret {
 		ret[i] = make([]float64, col)
 	}
 	return ret
+}
+
+func resetZeroMatrix(m [][]float64) {
+	for i := range m {
+		for j := range m[i] {
+			m[i][j] = 0
+		}
+	}
 }
 
 // Metrics 矩阵

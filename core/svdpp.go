@@ -72,19 +72,14 @@ func (pp *SVDPP) Predict(userID, itemID int) float64 {
 	return predict
 }
 
-func (pp *SVDPP) Fit(trainData TrainSet, options ...OptionSetter) {
-	// 设置参数
-	option := Option{
-		nFactors:   20,
-		nEpochs:    20,
-		lr:         0.007,
-		reg:        0.02,
-		initMean:   0,
-		initStdDev: 0.1,
-	}
-	for _, editor := range options {
-		editor(&option)
-	}
+func (pp *SVDPP) Fit(trainData TrainSet, options Options) {
+	// Setup options
+	nFactors := options.GetInt("nFactors", 20)
+	nEpochs := options.GetInt("nEpochs", 20)
+	lr := options.GetFloat64("lr", 0.007)
+	reg := options.GetFloat64("reg", 0.02)
+	initMean := options.GetFloat64("initMean", 0)
+	initStdDev := options.GetFloat64("initStdDev", 0.1)
 
 	// 初始化参数
 	pp.userBias = make(map[int]float64)
@@ -96,12 +91,12 @@ func (pp *SVDPP) Fit(trainData TrainSet, options ...OptionSetter) {
 
 	for userID := range trainData.Users() {
 		pp.userBias[userID] = 0
-		pp.userFactor[userID] = NewNormalVector(option.nFactors, option.initMean, option.initStdDev)
+		pp.userFactor[userID] = newNormalVector(nFactors, initMean, initStdDev)
 	}
 	for itemID := range trainData.Items() {
 		pp.itemBias[itemID] = 0
-		pp.itemFactor[itemID] = NewNormalVector(option.nFactors, option.initMean, option.initStdDev)
-		pp.implFactor[itemID] = NewNormalVector(option.nFactors, option.initMean, option.initStdDev)
+		pp.itemFactor[itemID] = newNormalVector(nFactors, initMean, initStdDev)
+		pp.implFactor[itemID] = newNormalVector(nFactors, initMean, initStdDev)
 	}
 	// 创建用户历史物品
 	pp.userHistory = make(map[int][]int)
@@ -118,12 +113,12 @@ func (pp *SVDPP) Fit(trainData TrainSet, options ...OptionSetter) {
 	}
 
 	// 创建缓存
-	a := make([]float64, option.nFactors)
-	b := make([]float64, option.nFactors)
+	a := make([]float64, nFactors)
+	b := make([]float64, nFactors)
 
 	// 随即梯度下降算法
 	// 系数常数已经保存在学习率和正则化系数中
-	for epoch := 0; epoch < option.nEpochs; epoch++ {
+	for epoch := 0; epoch < nEpochs; epoch++ {
 		fmt.Printf("第 %d 轮\n", epoch)
 		for i := 0; i < trainData.Length(); i++ {
 			userID := users[i]
@@ -138,23 +133,23 @@ func (pp *SVDPP) Fit(trainData TrainSet, options ...OptionSetter) {
 			diff := pred - rating
 			// 更新全局偏置
 			gradGlobalBias := diff
-			pp.globalBias -= option.lr * gradGlobalBias
+			pp.globalBias -= lr * gradGlobalBias
 
 			// 更新 User 偏置
-			gradUserBias := diff + option.reg*userBias
-			pp.userBias[userID] -= option.lr * gradUserBias
+			gradUserBias := diff + reg*userBias
+			pp.userBias[userID] -= lr * gradUserBias
 
 			// item  偏置
-			gradItemBias := diff + option.reg*itemBias
-			pp.itemBias[itemID] -= option.lr * gradItemBias
+			gradItemBias := diff + reg*itemBias
+			pp.itemBias[itemID] -= lr * gradItemBias
 
 			// user 潜在因子
 			copy(a, itemFactor)
 			mulConst(diff, a)
 			copy(b, userFactor)
-			mulConst(option.reg, b)
+			mulConst(reg, b)
 			floats.Add(a, b)
-			mulConst(option.lr, a)
+			mulConst(lr, a)
 			floats.Sub(pp.userFactor[userID], a)
 
 			// item 潜在因子
@@ -164,9 +159,9 @@ func (pp *SVDPP) Fit(trainData TrainSet, options ...OptionSetter) {
 			}
 			mulConst(diff, a)
 			copy(b, itemFactor)
-			mulConst(option.reg, b)
+			mulConst(reg, b)
 			floats.Add(a, b)
-			mulConst(option.lr, a)
+			mulConst(lr, a)
 			floats.Sub(pp.itemFactor[itemID], a)
 
 			// 隐因子
@@ -179,10 +174,10 @@ func (pp *SVDPP) Fit(trainData TrainSet, options ...OptionSetter) {
 				divConst(math.Sqrt(float64(len(set))), a)
 
 				copy(b, implFactor)
-				mulConst(option.reg, b)
+				mulConst(reg, b)
 
 				floats.Add(a, b)
-				mulConst(option.lr, a)
+				mulConst(lr, a)
 
 				floats.Sub(pp.implFactor[itemID], a)
 			}
