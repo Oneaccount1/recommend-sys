@@ -3,3 +3,4 @@ core/data/*
 core/temp/*
 
 benchmark/*
+.idea/*
