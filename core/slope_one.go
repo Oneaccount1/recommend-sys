@@ -37,11 +37,11 @@ func (s *SlopeOne) Predict(userId int, itemId int) float64 {
 
 }
 
-func (s *SlopeOne) Fit(trainSet TrainSet, options Options) {
+func (s *SlopeOne) Fit(trainSet TrainSet, params Parameters) {
 	s.trainSet = trainSet
 	s.globalMean = trainSet.GlobalMean()
 	s.userRatings = trainSet.UserRatings()
-	s.userMean = mean(s.userRatings)
+	s.userMean = means(s.userRatings)
 	s.dev = newZeroMatrix(trainSet.ItemCount(), trainSet.ItemCount())
 	ratings := trainSet.itemRatings
 

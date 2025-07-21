@@ -4,7 +4,7 @@ import (
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/stat"
 	"math"
-	"math/rand/v2"
+	"math/rand"
 )
 
 func concatenate(arrs ...[]int) []int {
@@ -54,7 +54,7 @@ func abs(dst []float64) {
 		dst[i] = math.Abs(dst[i])
 	}
 }
-func mean(a [][]float64) []float64 {
+func means(a [][]float64) []float64 {
 	ret := make([]float64, len(a))
 	// 注意Nan
 	for i := range a {
@@ -81,7 +81,7 @@ func divConst(c float64, dst []float64) {
 	}
 }
 
-// 生成测试数据
+// Vector
 
 func newNormalVector(size int, mean float64, stdDev float64) []float64 {
 	ret := make([]float64, size)
@@ -99,7 +99,23 @@ func newUniformVector(size int, low float64, high float64) []float64 {
 	}
 	return ret
 }
+func resetZeroVector(a []float64) {
+	for i := range a {
+		a[i] = 0.0
+	}
+}
 
+// todo co_clustering 使用的num文件下的函数有错误
+func newUniformVectorInt(size, low, high int) []int {
+	ret := make([]int, size)
+	scale := high - low
+	for i := 0; i < len(ret); i++ {
+		ret[i] = rand.Intn(scale) + low
+	}
+	return ret
+}
+
+// Matrix
 func newUniformMatrix(row, col int, low, high float64) [][]float64 {
 	ret := make([][]float64, row)
 	for i := range ret {
@@ -132,6 +148,13 @@ func resetZeroMatrix(m [][]float64) {
 			m[i][j] = 0
 		}
 	}
+}
+func newSparseMatrix(row int) []map[int]float64 {
+	m := make([]map[int]float64, row)
+	for i := range m {
+		m[i] = make(map[int]float64)
+	}
+	return m
 }
 
 // Metrics 矩阵

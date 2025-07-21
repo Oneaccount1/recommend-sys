@@ -10,8 +10,8 @@ const EPSILON float64 = 0.05
 
 func Evaluate(t *testing.T, algo Algorithm, dataSet TrainSet,
 	expectRMSE float64, expectMAE float64) {
+	results := CrossValidate(algo, dataSet, []Metrics{RootMeanSquareError, MeanAbsoluteError}, 5, 0, nil)
 	// Cross validation
-	results := CrossValidate(algo, dataSet, []Metrics{RootMeanSquareError, MeanAbsoluteError}, 5, 0, DefaultOptions())
 	// Check RMSE
 	rmse := stat.Mean(results[0], nil)
 	if math.Abs(rmse-expectRMSE) > EPSILON {
@@ -55,4 +55,8 @@ func TestKNNBaseLine(t *testing.T) {
 // Comment out SVD++ test to avoid time out
 func TestSVDPP(t *testing.T) {
 	Evaluate(t, NewSVDPP(), LoadDataFromBuiltIn("ml-100k"), 0.92, 0.722)
+}
+
+func TestCoClustering(t *testing.T) {
+	Evaluate(t, NewCoClustering(), LoadDataFromBuiltIn("ml-100k"), 0.963, 0.753)
 }

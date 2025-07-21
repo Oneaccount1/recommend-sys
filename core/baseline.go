@@ -23,11 +23,12 @@ func (b *BaseLine) Predict(userID, itemID int) float64 {
 	}
 	return ret
 }
-func (b *BaseLine) Fit(trainSet TrainSet, options Options) {
+func (b *BaseLine) Fit(trainSet TrainSet, params Parameters) {
 	// Setup options
-	reg := options.GetFloat64("reg", 0.02)
-	lr := options.GetFloat64("lr", 0.005)
-	nEpochs := options.GetInt("nEpochs", 20)
+	reader := newParameterReader(params)
+	reg := reader.getFloat64("reg", 0.02)
+	lr := reader.getFloat64("lr", 0.005)
+	nEpochs := reader.getInt("nEpochs", 20)
 	b.trainSet = trainSet
 	b.userBias = make([]float64, b.trainSet.userCount)
 	b.itemBias = make([]float64, b.trainSet.itemCount)

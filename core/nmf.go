@@ -19,12 +19,13 @@ func (N *NMF) Predict(userId int, itemId int) float64 {
 	return 0
 }
 
-func (N *NMF) Fit(trainSet TrainSet, options Options) {
-	nFactors := options.GetInt("nFactors", 15)
-	nEpochs := options.GetInt("nEpochs", 50)
-	initLow := options.GetFloat64("initLow", 0)
-	initHigh := options.GetFloat64("initHigh", 1)
-	reg := options.GetFloat64("reg", 0.06)
+func (N *NMF) Fit(trainSet TrainSet, options Parameters) {
+	reader := newParameterReader(options)
+	nFactors := reader.getInt("nFactors", 15)
+	nEpochs := reader.getInt("nEpochs", 50)
+	initLow := reader.getFloat64("initLow", 0)
+	initHigh := reader.getFloat64("initHigh", 1)
+	reg := reader.getFloat64("reg", 0.06)
 	//lr := options.GetFloat64("lr", 0.005)
 	N.trainSet = trainSet
 	// 初始化参数

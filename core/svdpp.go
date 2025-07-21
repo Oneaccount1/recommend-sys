@@ -72,14 +72,15 @@ func (pp *SVDPP) Predict(userID, itemID int) float64 {
 	return predict
 }
 
-func (pp *SVDPP) Fit(trainData TrainSet, options Options) {
+func (pp *SVDPP) Fit(trainData TrainSet, params Parameters) {
 	// Setup options
-	nFactors := options.GetInt("nFactors", 20)
-	nEpochs := options.GetInt("nEpochs", 20)
-	lr := options.GetFloat64("lr", 0.007)
-	reg := options.GetFloat64("reg", 0.02)
-	initMean := options.GetFloat64("initMean", 0)
-	initStdDev := options.GetFloat64("initStdDev", 0.1)
+	reader := newParameterReader(params)
+	nFactors := reader.getInt("nFactors", 20)
+	nEpochs := reader.getInt("nEpochs", 20)
+	lr := reader.getFloat64("lr", 0.007)
+	reg := reader.getFloat64("reg", 0.02)
+	initMean := reader.getFloat64("initMean", 0)
+	initStdDev := reader.getFloat64("initStdDev", 0.1)
 
 	// 初始化参数
 	pp.userBias = make(map[int]float64)

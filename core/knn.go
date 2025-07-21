@@ -13,12 +13,12 @@ const (
 )
 
 type KNN struct {
-	option     Options
+	option     parameterReader
 	tpe        int
 	globalMean float64
 	sims       [][]float64
 	ratings    [][]float64
-	means      []float64 // Centered KNN :user(item) mean
+	means      []float64 // Centered KNN :user(item) means
 	bias       []float64 // KNN BaseLine :bias
 	trainSet   TrainSet
 
@@ -125,12 +125,13 @@ func (K *KNN) Predict(userID int, itemID int) float64 {
 
 }
 
-func (K *KNN) Fit(trainSet TrainSet, options Options) {
+func (K *KNN) Fit(trainSet TrainSet, options Parameters) {
 	// Setup options
-	sim := options.GetSim("sim", MSD)
-	K.userBased = options.GetBool("userBased", true)
-	K.k = options.GetInt("k", 40)
-	K.minK = options.GetInt("minK", 1)
+	reader := newParameterReader(options)
+	sim := reader.getSim("sim", MSD)
+	K.userBased = reader.getBool("userBased", true)
+	K.k = reader.getInt("k", 40)
+	K.minK = reader.getInt("minK", 1)
 
 	K.trainSet = trainSet
 	// 设置全局平均值为新的用户（物品）

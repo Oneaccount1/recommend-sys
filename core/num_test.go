@@ -25,3 +25,14 @@ func TestNewNormalVector(t *testing.T) {
 		t.Fatalf("Std(%.4f) doesn't match %.4f", stdDev, 2.0)
 	}
 }
+
+func Test_newUniformVectorInt(t *testing.T) {
+	size, low, high := 10, 5, 10
+	vectorInt := newUniformVectorInt(size, low, high)
+	for i := range vectorInt {
+		if vectorInt[i] > high || vectorInt[i] < low {
+			t.Fatalf("vectorInt[%d] is not in scale %d and %d ", i, low, high)
+		}
+	}
+
+}

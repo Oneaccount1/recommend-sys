@@ -97,12 +97,12 @@ func (set *TrainSet) UserRatings() [][]float64 {
 
 func (set *TrainSet) ItemRatings() [][]float64 {
 	if set.itemRatings == nil {
-		set.itemRatings = newNanMatrix(set.userCount, set.itemCount)
+		set.itemRatings = newNanMatrix(set.itemCount, set.userCount)
 		users, items, ratings := set.Interactions()
 		for i := 0; i < len(users); i++ {
-			innerItemID := set.innerItemIDs[items[i]]
-			innerUserID := set.innerUserIDs[users[i]]
-			set.itemRatings[innerItemID][innerUserID] = ratings[i]
+			innerUserId := set.ConvertUserID(users[i])
+			innerItemId := set.ConvertItemID(items[i])
+			set.itemRatings[innerItemId][innerUserId] = ratings[i]
 		}
 	}
 	return set.itemRatings
@@ -135,6 +135,10 @@ func (set *TrainSet) KFold(k int, seed int64) ([]TrainSet, []TrainSet) {
 		begin = end
 	}
 	return trainFolds, testFolds
+}
+
+func (set *TrainSet) Split(testSize int) (TrainSet, TrainSet) {
+	return TrainSet{}, TrainSet{}
 }
 func NewTrainSet(users, items []int, ratings []float64) TrainSet {
 	set := TrainSet{}
