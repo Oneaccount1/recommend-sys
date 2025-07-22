@@ -40,9 +40,6 @@ func (N *NMF) Fit(trainSet TrainSet, options Parameters) {
 	itemUp := newZeroMatrix(trainSet.ItemCount(), nFactors)
 	itemDown := newZeroMatrix(trainSet.ItemCount(), nFactors)
 
-	// 获取数据
-	users, items, ratings := trainSet.Interactions()
-
 	for epoch := 0; epoch < nEpochs; epoch++ {
 		// 重置中间矩阵
 		resetZeroMatrix(userUp)
@@ -51,8 +48,8 @@ func (N *NMF) Fit(trainSet TrainSet, options Parameters) {
 		resetZeroMatrix(itemDown)
 
 		// 计算中间矩阵
-		for i := 0; i < len(ratings); i++ {
-			userID, itemID, rating := users[i], items[i], ratings[i]
+		for i := 0; i < trainSet.Length(); i++ {
+			userID, itemID, rating := trainSet.Users[i], trainSet.Items[i], trainSet.Ratings[i]
 			innerUserID := trainSet.ConvertUserID(userID)
 			innerItemID := trainSet.ConvertItemID(itemID)
 			prediction := N.Predict(userID, itemID)

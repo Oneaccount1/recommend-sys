@@ -60,7 +60,7 @@ func means(a [][]float64) []float64 {
 	for i := range a {
 		sum, count := 0.0, 0.0
 		for j := range a[i] {
-			if math.IsNaN(a[i][j]) {
+			if !math.IsNaN(a[i][j]) {
 				count++
 				sum += a[i][j]
 			}
@@ -105,7 +105,6 @@ func resetZeroVector(a []float64) {
 	}
 }
 
-// todo co_clustering 使用的num文件下的函数有错误
 func newUniformVectorInt(size, low, high int) []int {
 	ret := make([]int, size)
 	scale := high - low
@@ -157,18 +156,19 @@ func newSparseMatrix(row int) []map[int]float64 {
 	return m
 }
 
-// Metrics 矩阵
-type Metrics func([]float64, []float64) float64
+// Evaluator
+type Evaluator func([]float64, []float64) float64
 
-func RootMeanSquareError(prediction []float64, truth []float64) float64 {
-	tmp := make([]float64, len(prediction))
-	floats.SubTo(tmp, prediction, truth)
-	floats.Mul(tmp, tmp)
-	return math.Sqrt(stat.Mean(tmp, nil))
+func RMSE(predictions []float64, truth []float64) float64 {
+	temp := make([]float64, len(predictions))
+	floats.SubTo(temp, predictions, truth)
+	floats.Mul(temp, temp)
+	return math.Sqrt(stat.Mean(temp, nil))
 }
-func MeanAbsoluteError(prediction []float64, truth []float64) float64 {
-	tmp := make([]float64, len(prediction))
-	floats.SubTo(tmp, prediction, truth)
-	abs(tmp)
-	return stat.Mean(tmp, nil)
+
+func MAE(predictions []float64, truth []float64) float64 {
+	temp := make([]float64, len(predictions))
+	floats.SubTo(temp, predictions, truth)
+	abs(temp)
+	return stat.Mean(temp, nil)
 }

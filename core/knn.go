@@ -8,7 +8,7 @@ import (
 const (
 	basic    = 0
 	centered = 1
-	zscore   = 2
+	zScore   = 2
 	baseline = 3
 )
 
@@ -19,6 +19,7 @@ type KNN struct {
 	sims       [][]float64
 	ratings    [][]float64
 	means      []float64 // Centered KNN :user(item) means
+	stds       []float64 // KNN with Z Score: user (item) standard deviation
 	bias       []float64 // KNN BaseLine :bias
 	trainSet   TrainSet
 
@@ -57,6 +58,11 @@ func NewKNN() *KNN {
 func NewKNNWithMean() *KNN {
 	knn := new(KNN)
 	knn.tpe = baseline
+	return knn
+}
+func NewKNNWithZScore() *KNN {
+	knn := new(KNN)
+	knn.tpe = zScore
 	return knn
 }
 func NewKNNBaseLine() *KNN {
@@ -107,22 +113,27 @@ func (K *KNN) Predict(userID int, itemID int) float64 {
 	for _, otherID := range candidateSet.candidate[0:numNeighbors] {
 		weightSum += K.sims[leftID][otherID]
 		// （以基于用户的角度）用户与候选人相似度 * 候选人对该物品的评分
-		weightRating += K.sims[leftID][otherID] * K.ratings[otherID][rightID]
+		rating := K.ratings[otherID][rightID]
 
 		if K.tpe == centered {
-			weightRating -= K.sims[leftID][otherID] * K.means[otherID]
+			rating -= K.means[otherID]
 		} else if K.tpe == baseline {
-			weightRating -= K.sims[leftID][otherID] * K.bias[otherID]
+			rating -= K.bias[otherID]
+		} else if K.tpe == zScore {
+			rating = (rating - K.means[otherID]) / K.stds[otherID]
 		}
+		weightRating += K.sims[leftID][otherID] * rating
 	}
 	prediction := weightRating / weightSum
 	if K.tpe == centered {
 		prediction += K.means[leftID]
 	} else if K.tpe == baseline {
 		prediction += K.bias[leftID]
+	} else if K.tpe == zScore {
+		prediction *= K.stds[leftID]
+		prediction += K.means[leftID]
 	}
-	return weightRating / weightSum
-
+	return prediction
 }
 
 func (K *KNN) Fit(trainSet TrainSet, options Parameters) {
@@ -139,13 +150,13 @@ func (K *KNN) Fit(trainSet TrainSet, options Parameters) {
 	// 获取用户（物品） 评分
 	if K.userBased {
 		K.ratings = trainSet.UserRatings()
-		K.sims = newNanMatrix(trainSet.userCount, trainSet.userCount)
+		K.sims = newNanMatrix(trainSet.UserCount(), trainSet.UserCount())
 	} else {
 		K.ratings = trainSet.ItemRatings()
-		K.sims = newNanMatrix(K.trainSet.itemCount, trainSet.itemCount)
+		K.sims = newNanMatrix(trainSet.ItemCount(), trainSet.itemCount)
 	}
 	// 获取 user（item）的平均值
-	if K.tpe == centered {
+	if K.tpe == centered || K.tpe == zScore {
 		K.means = make([]float64, len(K.ratings))
 		for i := range K.means {
 			sum, count := 0.0, 0.0
@@ -157,7 +168,23 @@ func (K *KNN) Fit(trainSet TrainSet, options Parameters) {
 			}
 			K.means[i] = sum / count
 		}
-	} else if K.tpe == baseline {
+	}
+	if K.tpe == zScore {
+		K.stds = make([]float64, len(K.ratings))
+		for i := range K.means {
+			sum, count := 0.0, 0.0
+			for j := range K.ratings[i] {
+				if !math.IsNaN(K.ratings[i][j]) {
+					sum += (K.ratings[i][j] - K.means[i]) * (K.ratings[i][j] - K.means[i])
+					count++
+				}
+
+			}
+			K.stds[i] = math.Sqrt(sum / count)
+		}
+	}
+
+	if K.tpe == baseline {
 		baseLine := NewBaseLine()
 		baseLine.Fit(trainSet, options)
 		if K.userBased {

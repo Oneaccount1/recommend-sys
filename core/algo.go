@@ -7,6 +7,14 @@ type Algorithm interface {
 
 type Parameters map[string]interface{}
 
+func (p Parameters) Copy() Parameters {
+	newParams := make(Parameters)
+	for k, v := range p {
+		newParams[k] = v
+	}
+	return newParams
+}
+
 type parameterReader struct {
 	parameters map[string]interface{}
 }

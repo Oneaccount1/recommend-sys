@@ -10,26 +10,27 @@ import (
 	"strings"
 )
 
-type BuildInDataSet struct {
+type buildInDataSet struct {
 	url  string
 	path string
 	sep  string
 }
 
-var buildInDataSet = map[string]BuildInDataSet{
+var buildInDataSets = map[string]buildInDataSet{
 	"ml-100k": {
 		url:  "http://files.grouplens.org/datasets/movielens/ml-100k.zip",
 		path: "ml-100k/u.data",
 		sep:  "\t",
 	},
 	"ml-1m": {
-		url: "http://files.grouplens.org/datasets/movielens/ml-1m.zip",
-		sep: "::",
+		url:  "http://files.grouplens.org/datasets/movielens/ml-1m.zip",
+		path: "ml-1m/ratings.dat",
+		sep:  "::",
 	},
 	"jester": {url: "http://eigentaste.berkeley.edu/dataset/jester_dataset_2.zip"},
 }
 
-func DownloadFromUrl(src string, dst string) (string, error) {
+func downloadFromUrl(src string, dst string) (string, error) {
 	// Extract file name
 	tokens := strings.Split(src, "/")
 	fileName := filepath.Join(dst, tokens[len(tokens)-1])
@@ -59,7 +60,7 @@ func DownloadFromUrl(src string, dst string) (string, error) {
 	return fileName, nil
 }
 
-func Unzip(src string, dst string) ([]string, error) {
+func unzip(src string, dst string) ([]string, error) {
 	var fileNames []string
 	// Open zip file
 	r, err := zip.OpenReader(src)

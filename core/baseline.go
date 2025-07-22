@@ -33,11 +33,10 @@ func (b *BaseLine) Fit(trainSet TrainSet, params Parameters) {
 	b.userBias = make([]float64, b.trainSet.userCount)
 	b.itemBias = make([]float64, b.trainSet.itemCount)
 
-	users, items, ratings := trainSet.Interactions()
 	// baseline算法有两个参数需要训练得到, 使用随机梯度下降算法
 	for epoch := 0; epoch < nEpochs; epoch++ {
 		for i := 0; i < trainSet.Length(); i++ {
-			userID, itemID, rating := users[i], items[i], ratings[i]
+			userID, itemID, rating := trainSet.Users[i], trainSet.Items[i], trainSet.Ratings[i]
 
 			innerUserID := trainSet.ConvertUserID(userID)
 			innerItemID := trainSet.ConvertItemID(itemID)

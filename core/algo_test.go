@@ -8,17 +8,17 @@ import (
 
 const EPSILON float64 = 0.05
 
-func Evaluate(t *testing.T, algo Algorithm, dataSet TrainSet,
+func Evaluate(t *testing.T, algo Algorithm, dataSet DataSet,
 	expectRMSE float64, expectMAE float64) {
-	results := CrossValidate(algo, dataSet, []Metrics{RootMeanSquareError, MeanAbsoluteError}, 5, 0, nil)
+	results := CrossValidate(algo, dataSet, []Evaluator{RMSE, MAE}, 5, 0, nil)
 	// Cross validation
 	// Check RMSE
-	rmse := stat.Mean(results[0], nil)
+	rmse := stat.Mean(results[0].Tests, nil)
 	if math.Abs(rmse-expectRMSE) > EPSILON {
 		t.Fatalf("RMSE(%.3f) not in %.3f±%.3f", rmse, expectRMSE, EPSILON)
 	}
 	// Check MAE
-	mae := stat.Mean(results[1], nil)
+	mae := stat.Mean(results[1].Tests, nil)
 	if math.Abs(mae-expectMAE) > EPSILON {
 		t.Fatalf("MAE(%.3f) not in %.3f±%.3f", mae, expectMAE, EPSILON)
 	}

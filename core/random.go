@@ -23,7 +23,7 @@ func (r *Random) Predict(userID, itemID int) float64 {
 }
 
 func (r *Random) Fit(trainData TrainSet, params Parameters) {
-	_, _, ratings := trainData.Interactions()
+	ratings := trainData.Ratings
 	r.mean = stat.Mean(ratings, nil)
 	r.stdDev = stat.StdDev(ratings, nil)
 	r.low, r.high = trainData.RatingRange()

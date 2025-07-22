@@ -70,68 +70,80 @@ func (c *CoClustering) Fit(trainSet TrainSet, parameters Parameters) {
 	c.itemClusterMeans = make([]float64, nItemClusters)
 	c.coClusterMeans = newZeroMatrix(nUserClusters, nItemClusters)
 
-	// 计算平均值
-	clusterMean(c.userClusterMeans, c.userClusters, trainSet.userRatings)
-	clusterMean(c.itemClusterMeans, c.itemClusters, trainSet.itemRatings)
-	// A^{tmp1}_{ij} = A_{ij} - A^R_i - A^C_j
+	// 计算初始平均值
 	userRatings := trainSet.UserRatings()
+	itemRatings := trainSet.ItemRatings()
+	clusterMean(c.userClusterMeans, c.userClusters, userRatings)
+	clusterMean(c.itemClusterMeans, c.itemClusters, itemRatings)
+	coClusterMean(c.coClusterMeans, c.userClusters, c.itemClusters, userRatings)
+
+	// 计算tmp1矩阵: A^{tmp1}_{ij} = A_{ij} - A^R_i - A^C_j
 	tmp1 := newNanMatrix(trainSet.UserCount(), trainSet.ItemCount())
 	for i := range tmp1 {
 		for j := range tmp1[i] {
-			if !math.IsNaN(tmp1[i][j]) {
+			if !math.IsNaN(userRatings[i][j]) {
 				tmp1[i][j] = userRatings[i][j] - c.userMeans[i] - c.itemMeans[j]
 			}
 		}
 	}
+
 	// 聚类
-	for ep := 0; ep <= nEpochs; ep++ {
-		// Compute averages A^{COC}, A^{RC}, A^{CC}, A^R, A^C
-		clusterMean(c.userClusterMeans, c.userClusters, trainSet.UserRatings())
-		clusterMean(c.itemClusterMeans, c.itemClusters, trainSet.ItemRatings())
-		coClusterMean(c.coClusterMeans, c.userClusters, c.itemClusters, userRatings)
-		// Update row (user) cluster assignments
+	for ep := 0; ep < nEpochs; ep++ {
+		// 1. 更新用户聚类
 		for i := range c.userClusters {
-			bestCluster, leastCost := -1, math.Inf(1)
+			bestCluster, leastCost := 0, math.Inf(1) // 将初始值从-1改为0，确保至少有一个有效的簇索引
+			count := 0
 			for k := 0; k < nUserClusters; k++ {
-				// \sum^n_{j=1}W_{ij}(A^{tmp1}_{ij}-A^{COC)_{gy(j)}+A^{RC}_g+A^{RC}_{y(j)})^2
 				cost := 0.0
-				for j := range c.itemClusters {
-					if !math.IsNaN(userRatings[i][j]) {
-						cost += tmp1[i][j] -
-							c.coClusterMeans[k][c.itemClusters[j]] +
-							c.userClusterMeans[k] +
-							c.itemClusterMeans[c.itemClusters[j]]
+				for j, rating := range userRatings[i] {
+
+					if !math.IsNaN(rating) {
+						count++
+						// 正确公式: (A^{tmp1}_{ij} - (A^{COC}_{g y(j)} - A^{RC}_g - A^{CC}_{y(j)}))^2
+						itemCluster := c.itemClusters[j]
+						diff := tmp1[i][j] - (c.coClusterMeans[k][itemCluster] - c.userClusterMeans[k] - c.itemClusterMeans[itemCluster])
+						cost += diff * diff
 					}
 				}
 				if cost < leastCost {
 					bestCluster = k
+					leastCost = cost
 				}
 			}
 			c.userClusters[i] = bestCluster
 		}
-		// 更新列 （item） cluster assignments
+
+		// 更新用户簇后重新计算平均值
+		clusterMean(c.userClusterMeans, c.userClusters, userRatings)
+		coClusterMean(c.coClusterMeans, c.userClusters, c.itemClusters, userRatings)
+
+		// 2. 更新物品聚类（修复了这里的关键错误）
 		for j := range c.itemClusters {
-			bestCluster, leastCost := -1, math.Inf(1)
+			bestCluster, leastCost := 0, math.Inf(1) // 将初始值从-1改为0，确保至少有一个有效的簇索引
+			count := 0
 			for k := 0; k < nItemClusters; k++ {
-				// \sum^m_{i=1}W_{ij}(A^{tmp1}_{ij}-A^{COC)_{p(i)h}+A^{RC}_{p(i)}+A^{RC}_h)^2
 				cost := 0.0
-				for i := range c.userClusters {
+
+				for i := 0; i < len(userRatings); i++ {
+					count++
 					if !math.IsNaN(userRatings[i][j]) {
-						cost += tmp1[i][j] -
-							// todo num文件提供的函数有误
-							c.coClusterMeans[c.itemClusters[i]][k] +
-							c.userClusterMeans[c.itemClusters[i]] +
-							c.itemClusterMeans[k]
+						// 正确公式: (A^{tmp1}_{ij} - (A^{COC}_{p(i) h} - A^{RC}_{p(i)} - A^{CC}_h))^2
+						userCluster := c.userClusters[i] // 使用用户簇而不是物品簇
+						diff := tmp1[i][j] - (c.coClusterMeans[userCluster][k] - c.userClusterMeans[userCluster] - c.itemClusterMeans[k])
+						cost += diff * diff
 					}
 				}
 				if cost < leastCost {
 					bestCluster = k
+					leastCost = cost
 				}
 			}
 			c.itemClusters[j] = bestCluster
 		}
+		// 更新物品簇后重新计算平均值
+		clusterMean(c.itemClusterMeans, c.itemClusters, itemRatings)
+		coClusterMean(c.coClusterMeans, c.userClusters, c.itemClusters, userRatings)
 	}
-
 }
 
 func NewCoClustering() *CoClustering {
@@ -169,8 +181,10 @@ func coClusterMean(dst [][]float64, userClusters, itemClusters []int, ratings []
 
 	}
 	for i := range dst {
-		for j := range dst {
-			dst[i][j] /= count[i][j]
+		for j := range dst[i] {
+			if count[i][j] > 0 { // 添加除零保护
+				dst[i][j] /= count[i][j]
+			}
 		}
 	}
 }

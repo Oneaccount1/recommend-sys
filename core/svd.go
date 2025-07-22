@@ -76,7 +76,6 @@ func (s *SVD) Fit(trainData TrainSet, params Parameters) {
 		s.itemFactor[i] = newNormalVector(nFactors, initMean, initStdDev)
 	}
 
-	users, items, ratings := trainData.Interactions()
 	// 创建缓存
 	a := make([]float64, nFactors)
 	b := make([]float64, nFactors)
@@ -84,7 +83,7 @@ func (s *SVD) Fit(trainData TrainSet, params Parameters) {
 	// 随机梯度下降
 	for epoch := 0; epoch < nEpochs; epoch++ {
 		for i := 0; i < trainData.Length(); i++ {
-			userID, itemID, rating := users[i], items[i], ratings[i]
+			userID, itemID, rating := trainData.Index(i)
 			innerUserID := trainData.ConvertUserID(userID)
 			innerItemID := trainData.ConvertItemID(itemID)
 			userBias := s.userBias[innerUserID]

@@ -18,25 +18,24 @@ import (
 )
 
 type SVDPP struct {
-	userHistory map[int][]int
-	userFactor  map[int][]float64
-	itemFactor  map[int][]float64
-	implFactor  map[int][]float64 //y_i
+	userHistory [][]float64
+	userFactor  [][]float64
+	itemFactor  [][]float64
+	implFactor  [][]float64 //y_i
 	//cacheFactor map[int][]float64
-	userBias   map[int]float64
-	itemBias   map[int]float64
+	userBias   []float64
+	itemBias   []float64
 	globalBias float64
+
+	trainSet TrainSet
 }
 
-func (pp *SVDPP) EnsembleImplFactors(userID int) ([]float64, bool) {
-	history, exist := pp.userHistory[userID]
+func (pp *SVDPP) EnsembleImplFactors(innerUserID int) []float64 {
+	history := pp.userHistory[innerUserID]
 	emImpFactor := make([]float64, 0)
-	// 用户交互物品历史没有存在
-	if !exist {
-		return emImpFactor, false
-	}
+
 	// 用户交互物品历史存在
-	for _, itemID := range history {
+	for itemID := range history {
 		if len(emImpFactor) == 0 {
 			// 初始化，分配内存
 			emImpFactor = make([]float64, len(pp.implFactor[itemID]))
@@ -44,28 +43,35 @@ func (pp *SVDPP) EnsembleImplFactors(userID int) ([]float64, bool) {
 		floats.Add(emImpFactor, pp.implFactor[itemID])
 	}
 	divConst(math.Sqrt(float64(len(history))), emImpFactor)
-	return emImpFactor, true
+	return emImpFactor
 }
 
 func (pp *SVDPP) InternalPredict(userID, itemID int) (float64, []float64) {
-	ret := .0
-	userFactor := pp.userFactor[userID]
-	itemFactor := pp.itemFactor[itemID]
-	emImpFactor, _ := pp.EnsembleImplFactors(userID)
-	if len(itemFactor) > 0 {
-		tmp := make([]float64, len(itemFactor))
-		if len(userFactor) > 0 {
-			floats.Add(tmp, userFactor)
-		}
-		if len(emImpFactor) > 0 {
-			floats.Add(tmp, emImpFactor)
-		}
-		ret = floats.Dot(tmp, itemFactor)
+
+	// convert to inner id
+
+	innerUserID := pp.trainSet.ConvertUserID(userID)
+	innerItemID := pp.trainSet.ConvertItemID(itemID)
+	ret := pp.globalBias
+	if innerUserID != newID {
+		ret += pp.userBias[innerUserID]
 	}
-	userBias := pp.userBias[userID]
-	itemBias := pp.itemBias[itemID]
-	ret += userBias + itemBias + pp.globalBias
-	return ret, emImpFactor
+
+	if innerItemID != newID {
+		ret += pp.itemBias[innerItemID]
+	}
+	if innerItemID != newID && innerUserID != newID {
+		userFactor := pp.userFactor[innerUserID]
+		itemFactor := pp.itemFactor[innerItemID]
+		emImpFactor := pp.EnsembleImplFactors(innerUserID)
+		tmp := make([]float64, len(itemFactor))
+		floats.Add(tmp, userFactor)
+		floats.Add(tmp, emImpFactor)
+		ret += floats.Dot(tmp, itemFactor)
+		return ret, emImpFactor
+	}
+	return ret, []float64{}
+
 }
 func (pp *SVDPP) Predict(userID, itemID int) float64 {
 	predict, _ := pp.InternalPredict(userID, itemID)
@@ -83,35 +89,23 @@ func (pp *SVDPP) Fit(trainData TrainSet, params Parameters) {
 	initStdDev := reader.getFloat64("initStdDev", 0.1)
 
 	// 初始化参数
-	pp.userBias = make(map[int]float64)
-	pp.itemBias = make(map[int]float64)
-	pp.userFactor = make(map[int][]float64)
-	pp.itemFactor = make(map[int][]float64)
-	pp.implFactor = make(map[int][]float64)
+	pp.trainSet = trainData
+	pp.userBias = make([]float64, trainData.UserCount())
+	pp.itemBias = make([]float64, trainData.ItemCount())
+	pp.userFactor = make([][]float64, trainData.UserCount())
+	pp.itemFactor = make([][]float64, trainData.ItemCount())
+	pp.implFactor = make([][]float64, trainData.ItemCount())
 	//pp.cacheFactor = make(map[int][]float64)
 
-	for userID := range trainData.Users() {
-		pp.userBias[userID] = 0
-		pp.userFactor[userID] = newNormalVector(nFactors, initMean, initStdDev)
+	for innerUserID := range pp.userBias {
+		pp.userFactor[innerUserID] = newNormalVector(nFactors, initMean, initStdDev)
 	}
-	for itemID := range trainData.Items() {
-		pp.itemBias[itemID] = 0
-		pp.itemFactor[itemID] = newNormalVector(nFactors, initMean, initStdDev)
-		pp.implFactor[itemID] = newNormalVector(nFactors, initMean, initStdDev)
+	for innerItemID := range pp.itemBias {
+		pp.itemFactor[innerItemID] = newNormalVector(nFactors, initMean, initStdDev)
+		pp.implFactor[innerItemID] = newNormalVector(nFactors, initMean, initStdDev)
 	}
 	// 创建用户历史物品
-	pp.userHistory = make(map[int][]int)
-	users, items, ratings := trainData.Interactions()
-	for i := 0; i < len(users); i++ {
-		userID := users[i]
-		itemID := items[i]
-
-		if _, exists := pp.userHistory[userID]; !exists {
-			pp.userHistory[userID] = make([]int, 0)
-		}
-		// 插入物品
-		pp.userHistory[userID] = append(pp.userHistory[userID], itemID)
-	}
+	pp.userHistory = trainData.UserRatings()
 
 	// 创建缓存
 	a := make([]float64, nFactors)
@@ -122,13 +116,15 @@ func (pp *SVDPP) Fit(trainData TrainSet, params Parameters) {
 	for epoch := 0; epoch < nEpochs; epoch++ {
 		fmt.Printf("第 %d 轮\n", epoch)
 		for i := 0; i < trainData.Length(); i++ {
-			userID := users[i]
-			itemID := items[i]
-			rating := ratings[i]
-			userBias := pp.userBias[userID]
-			itemBias := pp.itemBias[itemID]
-			userFactor := pp.userFactor[userID]
-			itemFactor := pp.itemFactor[itemID]
+			userID, itemID, rating := trainData.Index(i)
+
+			innerUserID := trainData.ConvertUserID(userID)
+			innerItemID := trainData.ConvertItemID(itemID)
+
+			userBias := pp.userBias[innerUserID]
+			itemBias := pp.itemBias[innerItemID]
+			userFactor := pp.userFactor[innerUserID]
+			itemFactor := pp.itemFactor[innerItemID]
 			// 计算差值
 			pred, emImpFactor := pp.InternalPredict(userID, itemID)
 			diff := pred - rating
@@ -138,11 +134,11 @@ func (pp *SVDPP) Fit(trainData TrainSet, params Parameters) {
 
 			// 更新 User 偏置
 			gradUserBias := diff + reg*userBias
-			pp.userBias[userID] -= lr * gradUserBias
+			pp.userBias[innerUserID] -= lr * gradUserBias
 
 			// item  偏置
 			gradItemBias := diff + reg*itemBias
-			pp.itemBias[itemID] -= lr * gradItemBias
+			pp.itemBias[innerItemID] -= lr * gradItemBias
 
 			// user 潜在因子
 			copy(a, itemFactor)
@@ -151,7 +147,7 @@ func (pp *SVDPP) Fit(trainData TrainSet, params Parameters) {
 			mulConst(reg, b)
 			floats.Add(a, b)
 			mulConst(lr, a)
-			floats.Sub(pp.userFactor[userID], a)
+			floats.Sub(pp.userFactor[innerUserID], a)
 
 			// item 潜在因子
 			copy(a, userFactor)
@@ -163,24 +159,24 @@ func (pp *SVDPP) Fit(trainData TrainSet, params Parameters) {
 			mulConst(reg, b)
 			floats.Add(a, b)
 			mulConst(lr, a)
-			floats.Sub(pp.itemFactor[itemID], a)
+			floats.Sub(pp.itemFactor[innerItemID], a)
 
 			// 隐因子
-			set := pp.userHistory[userID]
-			for _, itemID := range set {
-				implFactor := pp.implFactor[itemID]
+			set := pp.userHistory[innerUserID]
+			for itemID := range set {
+				if !math.IsNaN(pp.userHistory[innerUserID][itemID]) {
+					implFactor := pp.implFactor[itemID]
 
-				copy(a, itemFactor)
-				mulConst(diff, a)
-				divConst(math.Sqrt(float64(len(set))), a)
+					copy(a, itemFactor)
+					mulConst(diff, a)
+					divConst(math.Sqrt(float64(len(set))), a)
 
-				copy(b, implFactor)
-				mulConst(reg, b)
-
-				floats.Add(a, b)
-				mulConst(lr, a)
-
-				floats.Sub(pp.implFactor[itemID], a)
+					copy(b, implFactor)
+					mulConst(reg, b)
+					floats.Add(a, b)
+					mulConst(lr, a)
+					floats.Sub(pp.implFactor[itemID], a)
+				}
 			}
 
 		}
