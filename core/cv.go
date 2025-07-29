@@ -5,6 +5,7 @@ import (
 	"math"
 )
 
+// ParameterGrid 实际上就是一个二维数组
 type ParameterGrid map[string][]interface{}
 
 type CrossValidateResult struct {
@@ -67,11 +68,14 @@ func GridSearchCV(algo Algorithm, dataSet DataSet, paramGrid ParameterGrid,
 	count := 1
 	for param, values := range paramGrid {
 		params = append(params, param)
+		// 计算每一种参数可能的组合
 		count *= len(values)
 	}
 	// 创建网格搜索结果
+	// 每种验证方式产生一种结果
 	results := make([]GridSearchResult, len(evaluators))
 
+	// 初始化
 	for i := range results {
 		results[i] = GridSearchResult{}
 		results[i].BestScore = math.Inf(1)
@@ -83,12 +87,16 @@ func GridSearchCV(algo Algorithm, dataSet DataSet, paramGrid ParameterGrid,
 	var dfs func(deep int, options Parameters)
 
 	dfs = func(deep int, options Parameters) {
+		// 当deep == len(params) 时候，说明已经遍历完所有参数
 		if deep == len(params) {
 			// Cross validate
 			cvResult := CrossValidate(algo, dataSet, evaluators, cv, seed, options)
+
 			for i := range cvResult {
 				results[i].CVResult = append(results[i].CVResult, cvResult[i])
+				// 复制当前层的参数
 				results[i].AllParams = append(results[i].AllParams, options.Copy())
+				// 计算测试集平均分
 				score := stat.Mean(cvResult[i].Tests, nil)
 				if score < results[i].BestScore {
 					results[i].BestScore = score
@@ -97,8 +105,10 @@ func GridSearchCV(algo Algorithm, dataSet DataSet, paramGrid ParameterGrid,
 				}
 			}
 		} else {
+			// 选取下一个参数
 			param := params[deep]
 			values := paramGrid[param]
+			// 遍历下一个参数的可能选值
 			for _, val := range values {
 				options[param] = val
 				dfs(deep+1, options)

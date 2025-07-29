@@ -52,6 +52,7 @@ func (c *CoClustering) Predict(userId, itemId int) float64 {
 func (c *CoClustering) Fit(trainSet TrainSet, parameters Parameters) {
 	// Setup parameters
 	reader := newParameterReader(parameters)
+	// 参数设定分， 用户与物品划分为三类
 	nUserClusters := reader.getInt("nUserClusters", 3)
 	nItemClusters := reader.getInt("nItemClusters", 3)
 	nEpochs := reader.getInt("nEpochs", 20)
@@ -62,7 +63,7 @@ func (c *CoClustering) Fit(trainSet TrainSet, parameters Parameters) {
 	c.userMeans = means(trainSet.UserRatings())
 	// 物品受到评分的平均值
 	c.itemMeans = means(trainSet.ItemRatings())
-	//
+	// 初始化用户与物品簇
 	c.userClusters = newUniformVectorInt(trainSet.UserCount(), 0, nUserClusters)
 	c.itemClusters = newUniformVectorInt(trainSet.ItemCount(), 0, nItemClusters)
 
@@ -93,6 +94,7 @@ func (c *CoClustering) Fit(trainSet TrainSet, parameters Parameters) {
 		for i := range c.userClusters {
 			bestCluster, leastCost := 0, math.Inf(1) // 将初始值从-1改为0，确保至少有一个有效的簇索引
 			count := 0
+			// 计算合适的用户簇
 			for k := 0; k < nUserClusters; k++ {
 				cost := 0.0
 				for j, rating := range userRatings[i] {
