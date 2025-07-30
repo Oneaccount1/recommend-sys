@@ -1,32 +1,40 @@
 package core
 
-import "math"
+import (
+	"runtime"
+	"sync"
+)
 
 type SlopeOne struct {
+	Base
 	globalMean  float64
-	userRatings [][]float64
-	userMean    []float64
-	dev         [][]float64 // average difference between the ratings of i and those of j  存储两两物品间的平均评分差值
-	trainSet    TrainSet
+	userRatings [][]IDRating
+	userMeans   []float64
+	dev         [][]float64
+}
+
+func NewSlopeOne(params Parameters) *SlopeOne {
+	so := new(SlopeOne)
+	so.Params = params
+	return new(SlopeOne)
 }
 
 func (s *SlopeOne) Predict(userId int, itemId int) float64 {
-	innerUserID := s.trainSet.ConvertUserID(userId)
-	innerItemID := s.trainSet.ConvertItemID(itemId)
+	innerUserID := s.Data.ConvertUserID(userId)
+	innerItemID := s.Data.ConvertItemID(itemId)
 	prediction := 0.0
+
 	if innerUserID != newID {
-		prediction = s.userMean[innerUserID]
+		prediction = s.userMeans[innerUserID]
 	} else {
 		prediction = s.globalMean
 	}
 
-	if innerItemID != newID {
+	if innerItemID != newID && innerUserID != newID {
 		sum, count := 0.0, 0.0
-		for j := range s.userRatings[innerUserID] {
-			if !math.IsNaN(s.userRatings[innerUserID][j]) {
-				sum += s.dev[innerItemID][j]
-				count++
-			}
+		for _, ir := range s.userRatings[innerUserID] {
+			sum += s.dev[innerItemID][ir.ID]
+			count++
 		}
 		if count > 0 {
 			prediction += sum / count
@@ -34,39 +42,52 @@ func (s *SlopeOne) Predict(userId int, itemId int) float64 {
 	}
 
 	return prediction
-
 }
 
-func (s *SlopeOne) Fit(trainSet TrainSet, params Parameters) {
-	s.trainSet = trainSet
-	s.globalMean = trainSet.GlobalMean()
+func (s *SlopeOne) Fit(trainSet TrainSet) {
+	nJobs := runtime.NumCPU()
+	s.Data = trainSet
+	s.globalMean = trainSet.GlobalMean
 	s.userRatings = trainSet.UserRatings()
-	s.userMean = means(s.userRatings)
-	s.dev = newZeroMatrix(trainSet.ItemCount(), trainSet.ItemCount())
-	ratings := trainSet.itemRatings
+	s.userMeans = means(s.userRatings)
+	s.dev = newZeroMatrix(trainSet.ItemCount, trainSet.ItemCount)
+	itemRatings := trainSet.ItemRatings()
+	sorts(itemRatings)
+	// 计算物品偏差矩阵
+	// dev[i][j] 代表i、j物品之间的差值，
+	// dev[i][j] = Σ(rating_i - rating_j) / count
 
-	// 计算两两物品间的差异值, 先遍历两个物品
-	for i := 0; i < len(ratings); i++ {
-		for j := 0; j < i; j++ {
-			count, sum := 0.0, 0.0
-			// 继续遍历对这两个物品都有评分的用户集合
-			// 行为物品，列为用户
-			for k := 0; k < len(ratings[i]); k++ {
-				if !math.IsNaN(ratings[i][k]) && math.IsNaN(ratings[j][k]) {
-					sum += ratings[i][k] - ratings[j][k]
-					count++
+	// 并行计算
+	length := len(itemRatings)
+	var wg sync.WaitGroup
+	wg.Add(nJobs)
+
+	for j := 0; j < nJobs; j++ {
+		go func(jobID int) {
+			defer wg.Done()
+			begin := length * jobID / nJobs
+			end := length * (jobID + 1) / nJobs
+			for i := begin; i < end; i++ {
+				for j := 0; j < i; j++ {
+					count, sum, ptr := 0.0, 0.0, 0
+					for k := 0; k < len(itemRatings[i]) && ptr < len(itemRatings[j]); k++ {
+						ur := itemRatings[i][k]
+						for ptr < len(itemRatings[j]) && itemRatings[j][ptr].ID < ur.ID {
+							ptr++
+						}
+						if ptr < len(itemRatings[j]) && itemRatings[j][ptr].ID == ur.ID {
+							count++
+							sum += ur.Rating - itemRatings[j][ptr].Rating
+						}
+					}
+					if count > 0 {
+						s.dev[i][j] = sum / count
+						s.dev[j][i] = -s.dev[i][j]
+					}
 				}
 			}
-			// 如果交集不为空
-			if count > 0 {
-				s.dev[i][j] = sum / count
-				s.dev[j][i] = -s.dev[i][j]
-			}
-		}
+
+		}(j)
 	}
-
-}
-
-func NewSlopeOne() *SlopeOne {
-	return new(SlopeOne)
+	wg.Wait()
 }

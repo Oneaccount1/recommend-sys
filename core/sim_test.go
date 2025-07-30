@@ -5,31 +5,55 @@ import (
 	"testing"
 )
 
-const numEpsion = 0.01
+const epsilon = 0.01
 
 func TestCosine(t *testing.T) {
-	a := []float64{0: 3, 1: 4, 2: 5}
-	b := []float64{1: 1, 2: 2, 3: 3}
+	a := NewSortedIdRatings([]IDRating{
+		{1, 4},
+		{2, 5},
+		{3, 6},
+	})
+	b := NewSortedIdRatings([]IDRating{
+		{0, 0},
+		{1, 1},
+		{2, 2},
+	})
 	sim := Cosine(a, b)
-	if math.Abs(sim-0.978) > numEpsion {
+	if math.Abs(sim-0.978) > epsilon {
 		t.Fatal(sim, "!=", 0.978)
 	}
 }
 
 func TestMSD(t *testing.T) {
-	a := []float64{0: 3, 1: 4, 2: 5}
-	b := []float64{1: 1, 2: 2, 3: 3}
+	a := NewSortedIdRatings([]IDRating{
+		{1, 4},
+		{2, 5},
+		{3, 6},
+	})
+	b := NewSortedIdRatings([]IDRating{
+		{0, 0},
+		{1, 1},
+		{2, 2},
+	})
 	sim := MSD(a, b)
-	if math.Abs(sim-0.1) > numEpsion {
+	if math.Abs(sim-0.1) > epsilon {
 		t.Fatal(sim, "!=", 0.1)
 	}
 }
 
 func TestPearson(t *testing.T) {
-	a := []float64{0: 3, 1: 4, 2: 5}
-	b := []float64{1: 1, 2: 2, 3: 3}
+	a := NewSortedIdRatings([]IDRating{
+		{1, 4},
+		{2, 5},
+		{3, 6},
+	})
+	b := NewSortedIdRatings([]IDRating{
+		{0, 0},
+		{1, 1},
+		{2, 2},
+	})
 	sim := Pearson(a, b)
-	if math.Abs(sim) > numEpsion {
+	if math.Abs(sim) > epsilon {
 		t.Fatal(sim, "!=", 0.0)
 	}
 }

@@ -1,17 +1,66 @@
 package core
 
 import (
-	"fmt"
+	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/stat"
 	"math"
 	"testing"
 )
 
-func Test_unique(t *testing.T) {
-	arr := []int{1, 2, 3, 4, 5, 3, 1, 2, 4, 5, 3, 2}
-	mp := unique(arr)
-	for id, val := range mp {
-		fmt.Println(id, val)
+func EqualInt(a []int, b []int) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := 0; i < len(a); i++ {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func TestSelectFloat(t *testing.T) {
+	a := []float64{-1.0, 0, 1.0}
+	b := []float64{1.0, 0, 1.0}
+	c := []int{2, 1, 2}
+	if !floats.Equal(selectFloat(a, c), b) {
+		t.Fail()
+	}
+}
+
+func TestSelectInt(t *testing.T) {
+	a := []int{1, 2, 3}
+	b := []int{2, 3, 3}
+	c := []int{1, 2, 2}
+	if !EqualInt(selectInt(a, c), b) {
+		t.Fail()
+	}
+}
+
+func TestAbs(t *testing.T) {
+	a := []float64{-1.0, 0, 1.0}
+	b := []float64{1.0, 0, 1.0}
+	abs(a)
+	if !floats.Equal(a, b) {
+		t.Fail()
+	}
+}
+
+func TestMulConst(t *testing.T) {
+	a := []float64{0.0, 1.0, 2.0}
+	b := []float64{0.0, 2.0, 4.0}
+	mulConst(2.0, a)
+	if !floats.Equal(a, b) {
+		t.Fail()
+	}
+}
+
+func TestDivConst(t *testing.T) {
+	a := []float64{0.0, 1.0, 2.0}
+	b := []float64{0.0, 0.5, 1.0}
+	divConst(2.0, a)
+	if !floats.Equal(a, b) {
+		t.Fail()
 	}
 }
 
@@ -26,13 +75,13 @@ func TestNewNormalVector(t *testing.T) {
 	}
 }
 
-func Test_newUniformVectorInt(t *testing.T) {
-	size, low, high := 10, 5, 10
-	vectorInt := newUniformVectorInt(size, low, high)
-	for i := range vectorInt {
-		if vectorInt[i] > high || vectorInt[i] < low {
-			t.Fatalf("vectorInt[%d] is not in scale %d and %d ", i, low, high)
+func TestNewUniformVector(t *testing.T) {
+	a := newUniformVectorInt(100, 10, 100)
+	for _, val := range a {
+		if val < 10 {
+			t.Fail()
+		} else if val >= 100 {
+			t.Fail()
 		}
 	}
-
 }

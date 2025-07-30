@@ -14,7 +14,7 @@ type CrossValidateResult struct {
 }
 
 // CrossValidate 验证推荐算法性能
-func CrossValidate(algorithm Algorithm, dataSet DataSet, metrics []Evaluator, cv int, seed int64,
+func CrossValidate(estimator Estimator, dataSet DataSet, metrics []Evaluator, cv int, seed int64,
 	params Parameters) []CrossValidateResult {
 
 	ret := make([]CrossValidateResult, len(metrics))
@@ -29,7 +29,8 @@ func CrossValidate(algorithm Algorithm, dataSet DataSet, metrics []Evaluator, cv
 		// 训练
 		trainFold := trainFolds[i]
 		testFold := testFolds[i]
-		algorithm.Fit(trainFold, params)
+		estimator.SetParams(params)
+		estimator.Fit(trainFold)
 		// 获取test集相关数据
 		interactionUsers, interactionItems := testFold.Users, testFold.Items
 		// 创建预测数组
@@ -39,7 +40,7 @@ func CrossValidate(algorithm Algorithm, dataSet DataSet, metrics []Evaluator, cv
 			userID := interactionUsers[j]
 			itemID := interactionItems[j]
 			// 预测
-			predictions[j] = algorithm.Predict(userID, itemID)
+			predictions[j] = estimator.Predict(userID, itemID)
 		}
 		truth := testFold.Ratings
 
@@ -53,15 +54,15 @@ func CrossValidate(algorithm Algorithm, dataSet DataSet, metrics []Evaluator, cv
 }
 
 type GridSearchResult struct {
-	BestScore float64
-	BestParam map[string]interface{}
-	BestIndex int
-	CVResult  []CrossValidateResult
-	AllParams []Parameters
+	BestScore  float64
+	BestParams Parameters
+	BestIndex  int
+	CVResult   []CrossValidateResult
+	AllParams  []Parameters
 }
 
 // GridSearchCV Tune algorithm parameters with GridSearchCV
-func GridSearchCV(algo Algorithm, dataSet DataSet, paramGrid ParameterGrid,
+func GridSearchCV(algo Estimator, dataSet DataSet, paramGrid ParameterGrid,
 	evaluators []Evaluator, cv int, seed int64) []GridSearchResult {
 	// 获取参数名字和长度
 	params := make([]string, 0, len(paramGrid))
@@ -100,7 +101,7 @@ func GridSearchCV(algo Algorithm, dataSet DataSet, paramGrid ParameterGrid,
 				score := stat.Mean(cvResult[i].Tests, nil)
 				if score < results[i].BestScore {
 					results[i].BestScore = score
-					results[i].BestParam = options.Copy()
+					results[i].BestParams = options.Copy()
 					results[i].BestIndex = len(results[i].AllParams) - 1
 				}
 			}

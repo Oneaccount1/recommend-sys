@@ -54,21 +54,7 @@ func abs(dst []float64) {
 		dst[i] = math.Abs(dst[i])
 	}
 }
-func means(a [][]float64) []float64 {
-	ret := make([]float64, len(a))
-	// 注意Nan
-	for i := range a {
-		sum, count := 0.0, 0.0
-		for j := range a[i] {
-			if !math.IsNaN(a[i][j]) {
-				count++
-				sum += a[i][j]
-			}
-		}
-		ret[i] = sum / count
-	}
-	return ret
-}
+
 func mulConst(c float64, dst []float64) {
 	for i := 0; i < len(dst); i++ {
 		dst[i] *= c
