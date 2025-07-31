@@ -57,7 +57,6 @@ func (d *DataSet) KFold(k int, seed int64) ([]TrainSet, []DataSet) {
 		if i < d.Length()%k {
 			end++
 		}
-
 		// Test trainSet
 		testIndex := perm[begin:end]
 		testFolds[i] = d.SubSet(testIndex)
@@ -92,6 +91,16 @@ func (d *DataSet) ToCSV(fileName string, sep string) error {
 		}
 	}
 	return err
+}
+
+// Predict ratings for a set of <userId, itemId>s.
+func (d *DataSet) Predict(estimator Estimator) []float64 {
+	predictions := make([]float64, d.Length())
+	for j := 0; j < d.Length(); j++ {
+		userId, itemId, _ := d.Index(j)
+		predictions[j] = estimator.Predict(userId, itemId)
+	}
+	return predictions
 }
 
 type Set map[int]interface{}

@@ -395,7 +395,7 @@ func (pp *SVDPP) Fit(trainData TrainSet) {
 			floats.Add(a, b)
 			mulConst(lr, a)
 			floats.Sub(pp.ItemFactor[innerItemID], a)
-			// todo 并行计算, bug:并行粒度太细
+			// todo 并行计算
 			// 隐因子
 			nRating := len(pp.UserRatings[innerUserID])
 			var wg sync.WaitGroup
@@ -421,6 +421,21 @@ func (pp *SVDPP) Fit(trainData TrainSet) {
 				}(j)
 			}
 			wg.Wait()
+			//
+			//for _, ir := range pp.UserRatings[innerUserID] {
+			//	implFactor := pp.ImplFactor[ir.ID]
+			//
+			//	copy(a, itemFactor)
+			//	mulConst(diff, a)
+			//	divConst(math.Sqrt(float64(len(pp.UserRatings[innerUserID]))), a)
+			//
+			//	copy(b, implFactor)
+			//	mulConst(reg, b)
+			//	floats.Add(a, b)
+			//	mulConst(lr, a)
+			//	floats.Sub(pp.ImplFactor[ir.ID], a)
+			//}
+
 		}
 	}
 

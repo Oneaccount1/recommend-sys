@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"math"
 	"testing"
 )
@@ -17,10 +18,13 @@ func TestGridSearchCV(t *testing.T) {
 	// Check best parameters
 	bestParams := out[0].BestParams
 	if bestParams.GetInt("nEpochs", -1) != 10 {
+		fmt.Println(bestParams.GetInt("nEpochs", -1))
 		t.Fail()
 	} else if bestParams.GetFloat64("reg", -1) != 0.4 {
+		fmt.Println("2")
 		t.Fail()
 	} else if bestParams.GetFloat64("lr", -1) != 0.005 {
+		fmt.Println("3")
 		t.Fail()
 	}
 }

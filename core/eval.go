@@ -31,24 +31,18 @@ func CrossValidate(estimator Estimator, dataSet DataSet, metrics []Evaluator, cv
 		testFold := testFolds[i]
 		estimator.SetParams(params)
 		estimator.Fit(trainFold)
-		// 获取test集相关数据
-		interactionUsers, interactionItems := testFold.Users, testFold.Items
-		// 创建预测数组
-		predictions := make([]float64, testFold.Length())
-
-		for j := 0; j < testFold.Length(); j++ {
-			userID := interactionUsers[j]
-			itemID := interactionItems[j]
-			// 预测
-			predictions[j] = estimator.Predict(userID, itemID)
-		}
-		truth := testFold.Ratings
-
-		// Metrics
+		// Evaluate on train set
+		trainRatings := trainFold.Ratings
+		trainPrediction := trainFold.Predict(estimator)
 		for j := 0; j < len(ret); j++ {
-			ret[j].Tests[i] = metrics[j](predictions, truth)
+			ret[j].Trains[i] = metrics[j](trainPrediction, trainRatings)
 		}
-
+		// Evaluate on test set
+		testRatings := testFold.Ratings
+		testPredictions := testFold.Predict(estimator)
+		for j := 0; j < len(ret); j++ {
+			ret[j].Tests[i] = metrics[j](testPredictions, testRatings)
+		}
 	}
 	return ret
 }
@@ -120,5 +114,4 @@ func GridSearchCV(algo Estimator, dataSet DataSet, paramGrid ParameterGrid,
 	options := make(map[string]interface{})
 	dfs(0, options)
 	return results
-
 }
