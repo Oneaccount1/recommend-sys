@@ -49,6 +49,13 @@ func (parameters Parameters) GetSim(name string, _default Sim) Sim {
 	return _default
 }
 
+func (parameters Parameters) GetString(name string, _default string) string {
+	if val, exist := parameters[name]; exist {
+		return val.(string)
+	}
+	return _default
+}
+
 type Base struct {
 	Params Parameters
 	Data   TrainSet

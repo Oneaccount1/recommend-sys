@@ -3,26 +3,33 @@ package core
 import (
 	"encoding/gob"
 	"os"
+	"path/filepath"
 )
 
 // Load a object from file.
 func Load(fileName string, object interface{}) error {
 	file, err := os.Open(fileName)
-	defer file.Close()
-	if err == nil {
-		decoder := gob.NewDecoder(file)
-		decoder.Decode(object)
+	if err != nil {
+		return err
 	}
-	return err
+	defer file.Close()
+
+	decoder := gob.NewDecoder(file)
+	return decoder.Decode(object)
 }
 
 // Save a object to file.
 func Save(fileName string, object interface{}) error {
-	file, err := os.Create(fileName)
-	defer file.Close()
-	if err == nil {
-		encoder := gob.NewEncoder(file)
-		encoder.Encode(object)
+	// 创建目录
+	if err := os.MkdirAll(filepath.Dir(fileName), os.ModePerm); err != nil {
+		return err
 	}
-	return err
+	file, err := os.Create(fileName)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	encoder := gob.NewEncoder(file)
+	return encoder.Encode(object)
 }

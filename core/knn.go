@@ -8,15 +8,15 @@ import (
 )
 
 const (
-	basic    = 0
-	centered = 1
-	zScore   = 2
-	baseline = 3
+	basic    = "basic"
+	centered = "centered"
+	zScore   = "zscore"
+	baseline = "baseline"
 )
 
 type KNN struct {
 	Base
-	KNNType      int
+	KNNType      string
 	GlobalMean   float64
 	Sims         [][]float64
 	LeftRatings  [][]IDRating
@@ -49,25 +49,25 @@ func (n *CandidateSet) Swap(i, j int) {
 
 func NewKNN(params Parameters) *KNN {
 	knn := new(KNN)
-	knn.KNNType = basic
+	knn.KNNType = knn.Params.GetString("type", basic)
 	knn.Params = params
 	return knn
 }
 func NewKNNWithMean(params Parameters) *KNN {
 	knn := new(KNN)
-	knn.KNNType = centered
+	knn.KNNType = knn.Params.GetString("type", centered)
 	knn.Params = params
 	return knn
 }
 func NewKNNWithZScore(params Parameters) *KNN {
 	knn := new(KNN)
-	knn.KNNType = zScore
+	knn.KNNType = knn.Params.GetString("type", zScore)
 	knn.Params = params
 	return knn
 }
 func NewKNNBaseLine(params Parameters) *KNN {
 	knn := new(KNN)
-	knn.KNNType = baseline
+	knn.KNNType = knn.Params.GetString("type", baseline)
 	knn.Params = params
 	return knn
 }

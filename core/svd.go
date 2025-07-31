@@ -17,12 +17,11 @@ import (
 // assumed to be zero. The same applies for item i with b_i and q_i.
 type SVD struct {
 	Base
-	userFactor [][]float64
-	itemFactor [][]float64
-	userBias   []float64
-	itemBias   []float64
-	globalBias float64
-	trainSet   TrainSet
+	UserFactor [][]float64
+	ItemFactor [][]float64
+	UserBias   []float64
+	ItemBias   []float64
+	GlobalBias float64
 }
 
 func NewSVD(params Parameters) *SVD {
@@ -31,21 +30,21 @@ func NewSVD(params Parameters) *SVD {
 	return svd
 }
 func (s *SVD) Predict(userID, itemID int) float64 {
-	innerUserID := s.trainSet.ConvertUserID(userID)
-	innerItemID := s.trainSet.ConvertItemID(itemID)
-	ret := s.globalBias
+	innerUserID := s.Data.ConvertUserID(userID)
+	innerItemID := s.Data.ConvertItemID(itemID)
+	ret := s.GlobalBias
 	// +b_u
 	if innerUserID != newID {
-		ret += s.userBias[innerUserID]
+		ret += s.UserBias[innerUserID]
 	}
 	// +b_i
 	if innerItemID != newID {
-		ret += s.itemBias[innerItemID]
+		ret += s.ItemBias[innerItemID]
 	}
 	// +q_i^Tp_u
 	if !(innerItemID == newID || innerUserID == newID) {
-		userFactor := s.userFactor[innerUserID]
-		itemFactor := s.itemFactor[innerItemID]
+		userFactor := s.UserFactor[innerUserID]
+		itemFactor := s.ItemFactor[innerItemID]
 		ret += floats.Dot(userFactor, itemFactor)
 	}
 	return ret
@@ -71,18 +70,18 @@ func (s *SVD) Fit(trainData TrainSet) {
 	initMean := s.Params.GetFloat64("initMean", 0)
 	initStdDev := s.Params.GetFloat64("initStdDev", 0.1)
 	// 初始化参数
-	s.trainSet = trainData
-	s.userFactor = make([][]float64, s.trainSet.UserCount)
-	s.itemFactor = make([][]float64, s.trainSet.ItemCount)
+	s.Data = trainData
+	s.UserFactor = make([][]float64, trainData.UserCount)
+	s.ItemFactor = make([][]float64, trainData.ItemCount)
 
-	s.itemBias = make([]float64, s.trainSet.ItemCount)
-	s.userBias = make([]float64, s.trainSet.UserCount)
+	s.ItemBias = make([]float64, trainData.ItemCount)
+	s.UserBias = make([]float64, trainData.UserCount)
 
-	for i := range s.userFactor {
-		s.userFactor[i] = newNormalVector(nFactors, initMean, initStdDev)
+	for i := range s.UserFactor {
+		s.UserFactor[i] = newNormalVector(nFactors, initMean, initStdDev)
 	}
-	for i := range s.itemFactor {
-		s.itemFactor[i] = newNormalVector(nFactors, initMean, initStdDev)
+	for i := range s.ItemFactor {
+		s.ItemFactor[i] = newNormalVector(nFactors, initMean, initStdDev)
 	}
 
 	// 创建缓存
@@ -95,22 +94,22 @@ func (s *SVD) Fit(trainData TrainSet) {
 			userID, itemID, rating := trainData.Index(i)
 			innerUserID := trainData.ConvertUserID(userID)
 			innerItemID := trainData.ConvertItemID(itemID)
-			userBias := s.userBias[innerUserID]
-			itemBias := s.itemBias[innerItemID]
-			userFactor := s.userFactor[innerUserID]
-			itemFactor := s.itemFactor[innerItemID]
+			userBias := s.UserBias[innerUserID]
+			itemBias := s.ItemBias[innerItemID]
+			userFactor := s.UserFactor[innerUserID]
+			itemFactor := s.ItemFactor[innerItemID]
 			// 计算差值
 			diff := s.Predict(userID, itemID) - rating
 
 			// 计算各个参数的梯度
 			gradGlobalBias := diff
-			s.globalBias -= lr * gradGlobalBias
+			s.GlobalBias -= lr * gradGlobalBias
 
 			gradUserBias := diff + reg*userBias
-			s.userBias[innerUserID] -= lr * gradUserBias
+			s.UserBias[innerUserID] -= lr * gradUserBias
 
 			gradItemBias := diff + reg*itemBias
-			s.itemBias[innerItemID] -= lr * gradItemBias
+			s.ItemBias[innerItemID] -= lr * gradItemBias
 			// update user latent factor
 			copy(a, itemFactor)
 			mulConst(diff, a)
@@ -118,7 +117,7 @@ func (s *SVD) Fit(trainData TrainSet) {
 			mulConst(reg, b)
 			floats.Add(a, b)
 			mulConst(lr, a)
-			floats.Sub(s.userFactor[innerUserID], a)
+			floats.Sub(s.UserFactor[innerUserID], a)
 
 			copy(a, userFactor)
 			mulConst(diff, a)
@@ -126,7 +125,7 @@ func (s *SVD) Fit(trainData TrainSet) {
 			mulConst(reg, b)
 			floats.Add(a, b)
 			mulConst(lr, a)
-			floats.Sub(s.itemFactor[innerItemID], a)
+			floats.Sub(s.ItemFactor[innerItemID], a)
 		}
 	}
 
@@ -425,7 +424,7 @@ func (pp *SVDPP) Fit(trainData TrainSet) {
 			//for _, ir := range pp.UserRatings[innerUserID] {
 			//	implFactor := pp.ImplFactor[ir.ID]
 			//
-			//	copy(a, itemFactor)
+			//	copy(a, ItemFactor)
 			//	mulConst(diff, a)
 			//	divConst(math.Sqrt(float64(len(pp.UserRatings[innerUserID]))), a)
 			//

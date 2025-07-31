@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"os/user"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -111,8 +112,8 @@ type TrainSet struct {
 	UserCount  int
 	ItemCount  int
 
-	innerUserIDs map[int]int
-	innerItemIDs map[int]int
+	InnerUserIDs map[int]int
+	InnerItemIDs map[int]int
 
 	userRatings [][]IDRating
 	itemRatings [][]IDRating
@@ -131,18 +132,18 @@ func NewTrainSet(rowSet DataSet) TrainSet {
 	set.GlobalMean = stat.Mean(rowSet.Ratings, nil)
 
 	// 创建userID -> innerUserID的映射
-	set.innerUserIDs = make(map[int]int)
+	set.InnerUserIDs = make(map[int]int)
 	for _, userID := range set.Users {
-		if _, exist := set.innerUserIDs[userID]; !exist {
-			set.innerUserIDs[userID] = set.UserCount
+		if _, exist := set.InnerUserIDs[userID]; !exist {
+			set.InnerUserIDs[userID] = set.UserCount
 			set.UserCount++
 		}
 	}
 	// 创建itemID -> innerItemID的映射
-	set.innerItemIDs = make(map[int]int)
+	set.InnerItemIDs = make(map[int]int)
 	for _, itemID := range set.Items {
-		if _, exist := set.innerItemIDs[itemID]; !exist {
-			set.innerItemIDs[itemID] = set.ItemCount
+		if _, exist := set.InnerItemIDs[itemID]; !exist {
+			set.InnerItemIDs[itemID] = set.ItemCount
 			set.ItemCount++
 		}
 	}
@@ -166,13 +167,13 @@ func (set *TrainSet) RatingRange() (float64, float64) {
 }
 
 func (set *TrainSet) ConvertUserID(userID int) int {
-	if innerUserID, exist := set.innerUserIDs[userID]; exist {
+	if innerUserID, exist := set.InnerUserIDs[userID]; exist {
 		return innerUserID
 	}
 	return newID
 }
 func (set *TrainSet) ConvertItemID(itemID int) int {
-	if innerItemID, exist := set.innerItemIDs[itemID]; exist {
+	if innerItemID, exist := set.InnerItemIDs[itemID]; exist {
 		return innerItemID
 	}
 	return newID
@@ -400,13 +401,38 @@ type _BuiltInDataSet struct {
 
 var builtInDataSets = map[string]_BuiltInDataSet{
 	"ml-100k": {
-		url:  "http://files.grouplens.org/datasets/movielens/ml-100k.zip",
+		url:  "https://cdn.sine-x.com/datasets/movielens/ml-100k.zip",
 		path: "ml-100k/u.data",
 		sep:  "\t",
 	},
 	"ml-1m": {
-		url:  "http://files.grouplens.org/datasets/movielens/ml-1m.zip",
+		url:  "https://cdn.sine-x.com/datasets/movielens/ml-1m.zip",
 		path: "ml-1m/ratings.dat",
 		sep:  "::",
 	},
+	"ml-10m": {
+		url:  "https://cdn.sine-x.com/datasets/movielens/ml-10m.zip",
+		path: "ml-10M100K/ratings.dat",
+		sep:  "::",
+	},
+	"ml-20m": {
+		url:  "https://cdn.sine-x.com/datasets/movielens/ml-20m.zip",
+		path: "ml-20m/ratings.csv",
+		sep:  ",",
+	},
+}
+
+// The data directories
+var (
+	downloadDir string
+	dataSetDir  string
+	tempDir     string
+)
+
+func init() {
+	usr, _ := user.Current()
+	gorseDir := usr.HomeDir + "/.gorse"
+	downloadDir = gorseDir + "/download"
+	dataSetDir = gorseDir + "/datasets"
+	tempDir = gorseDir + "/temp"
 }
