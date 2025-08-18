@@ -114,6 +114,8 @@ type TrainSet struct {
 
 	InnerUserIDs map[int]int
 	InnerItemIDs map[int]int
+	outerUserIDs []int
+	outerItemIDs []int
 
 	userRatings [][]IDRating
 	itemRatings [][]IDRating

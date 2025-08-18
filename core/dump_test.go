@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"path/filepath"
 	"testing"
 )
@@ -12,6 +13,7 @@ func TestSave(t *testing.T) {
 	estimator1.Fit(NewTrainSet(dataSet))
 	err1 := RMSE(dataSet.Predict(estimator1), dataSet.Ratings)
 	// Save the model
+	fmt.Printf("模型数据文件位置 %s\n", filepath.Join(tempDir, "svd.m"))
 	if err := Save(filepath.Join(tempDir, "/svd.m"), estimator1); err != nil {
 		t.Fatal(err)
 	}

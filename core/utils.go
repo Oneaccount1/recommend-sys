@@ -1,10 +1,9 @@
 package core
 
 import (
-	"gonum.org/v1/gonum/floats"
-	"gonum.org/v1/gonum/stat"
 	"math"
 	"math/rand"
+	"sync"
 )
 
 func concatenate(arrs ...[]int) []int {
@@ -142,19 +141,40 @@ func newSparseMatrix(row int) []map[int]float64 {
 	return m
 }
 
-// Evaluator
-type Evaluator func([]float64, []float64) float64
-
-func RMSE(predictions []float64, truth []float64) float64 {
-	temp := make([]float64, len(predictions))
-	floats.SubTo(temp, predictions, truth)
-	floats.Mul(temp, temp)
-	return math.Sqrt(stat.Mean(temp, nil))
+// parallel 并行计算
+func parallel(nTask int, nJob int, worker func(begin, end int)) {
+	var wg sync.WaitGroup
+	wg.Add(nJob)
+	for j := 0; j < nJob; j++ {
+		go func(jobID int) {
+			defer wg.Done()
+			begin := nTask * jobID / nJob
+			end := nTask * (jobID + 1) / nJob
+			worker(begin, end)
+		}(j)
+	}
+	wg.Wait()
 }
 
-func MAE(predictions []float64, truth []float64) float64 {
-	temp := make([]float64, len(predictions))
-	floats.SubTo(temp, predictions, truth)
-	abs(temp)
-	return stat.Mean(temp, nil)
+// Evaluator
+type Evaluator func(Estimator, DataSet) float64
+
+func RMSE(estimator Estimator, testSet DataSet) float64 {
+	sum := 0.0
+	for j := 0; j < testSet.Length(); j++ {
+		userId, itemId, rating := testSet.Index(j)
+		prediction := estimator.Predict(userId, itemId)
+		sum += (prediction - rating) * (prediction - rating)
+	}
+	return math.Sqrt(sum / float64(testSet.Length()))
+}
+
+func MAE(estimator Estimator, testSet DataSet) float64 {
+	sum := 0.0
+	for j := 0; j < testSet.Length(); j++ {
+		userId, itemId, rating := testSet.Index(j)
+		prediction := estimator.Predict(userId, itemId)
+		sum += math.Abs(prediction - rating)
+	}
+	return sum / float64(testSet.Length())
 }
